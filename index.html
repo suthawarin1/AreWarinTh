@@ -209,7 +209,8 @@
       promptpayId: '', driveFolderUrl: '',
       businessName: 'สถาบันกวดวิชา', businessAddress: '', businessPhone: '', businessTaxId: '',
       bankName: '', bankAccountNo: '', bankAccountName: '', signatureName: '',
-      receiptPrefix: 'RC-', invoicePrefix: 'INV-'
+      receiptPrefix: 'RC-', invoicePrefix: 'INV-',
+      logoUrl: '', logoOnQr: false
     };
 
     // ================================================================
@@ -543,6 +544,22 @@
           <polygon points={fillPoints} className="spark-fill" fill="currentColor" />
           <polyline points={linePoints} className="spark-line" stroke="currentColor" />
         </svg>
+      );
+    }
+
+    // --- พร้อมเพย์ QR ที่ใส่โลโก้ตรงกลางได้ (ซ้อนด้วย CSS ไม่ใช้ canvas เพื่อเลี่ยงปัญหา CORS ข้ามโดเมน) ---
+    function BrandedQR({ qrUrl, logoUrl, showLogo, size = 128 }) {
+      return (
+        <div className="relative inline-block shrink-0" style={{ width: size, height: size }}>
+          <img src={qrUrl} alt="PromptPay QR" className="w-full h-full rounded-lg border border-slate-200 bg-white p-1" />
+          {showLogo && logoUrl && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div className="bg-white rounded-md shadow-sm flex items-center justify-center overflow-hidden" style={{ width: size * 0.24, height: size * 0.24, padding: size * 0.015 }}>
+                <img src={logoUrl} alt="" className="w-full h-full object-contain" />
+              </div>
+            </div>
+          )}
+        </div>
       );
     }
 
@@ -1008,6 +1025,7 @@
       const [savingRenew, setSavingRenew] = useState(false);
       const [savingHoliday, setSavingHoliday] = useState(false);
       const [savingBusiness, setSavingBusiness] = useState(false);
+      const [uploadingLogo, setUploadingLogo] = useState(false);
 
       // Settings (form-only local state for quick replies input)
       const [newQuickReply, setNewQuickReply] = useState({ title: '', text: '' });
@@ -2225,7 +2243,8 @@
             promptpayId: formData.get('promptpayId') || '',
             driveFolderUrl: formData.get('driveFolderUrl') || '',
             receiptPrefix: formData.get('receiptPrefix') || 'RC-',
-            invoicePrefix: formData.get('invoicePrefix') || 'INV-'
+            invoicePrefix: formData.get('invoicePrefix') || 'INV-',
+            logoOnQr: formData.get('logoOnQr') === 'on'
           });
           showToast('บันทึกข้อมูลสำหรับออกเอกสารเรียบร้อยแล้ว');
         } catch (error) {
@@ -2233,6 +2252,48 @@
         } finally {
           setSavingBusiness(false);
         }
+      };
+
+      // ================================================================
+      // --- โลโก้ธุรกิจ (อัปโหลดเก็บใน Supabase Storage ใช้กับใบเสร็จ/ใบแจ้งหนี้/QR) ---
+      // ================================================================
+      const uploadLogo = async (file) => {
+        if (!file) return;
+        if (!file.type.startsWith('image/')) {
+          showToast('กรุณาเลือกไฟล์รูปภาพเท่านั้น', 'error');
+          return;
+        }
+        if (file.size > 2 * 1024 * 1024) {
+          showToast('ไฟล์รูปใหญ่เกินไป (จำกัดไม่เกิน 2MB)', 'error');
+          return;
+        }
+        setUploadingLogo(true);
+        try {
+          const ext = (file.name.split('.').pop() || 'png').toLowerCase();
+          const path = `${session.user.id}/logo.${ext}`;
+          const { error: uploadError } = await sb.storage.from('logos').upload(path, file, { upsert: true, cacheControl: '3600' });
+          if (uploadError) throw uploadError;
+          const { data } = sb.storage.from('logos').getPublicUrl(path);
+          const publicUrl = `${data.publicUrl}?t=${Date.now()}`;
+          await saveSettingsRaw({ logoUrl: publicUrl });
+          showToast('อัปโหลดโลโก้สำเร็จ');
+        } catch (error) {
+          showToast('อัปโหลดโลโก้ไม่สำเร็จ: ' + (error.message || 'ตรวจสอบว่ารัน SQL ตั้งค่า Storage แล้วหรือยัง'), 'error');
+        } finally {
+          setUploadingLogo(false);
+        }
+      };
+
+      const removeLogo = () => {
+        askConfirm({
+          title: 'ลบโลโก้?',
+          message: 'โลโก้จะถูกเอาออกจากใบเสร็จ ใบแจ้งหนี้ และ QR พร้อมเพย์',
+          confirmLabel: 'ลบโลโก้',
+          onConfirm: async () => {
+            await saveSettingsRaw({ logoUrl: '' });
+            showToast('ลบโลโก้แล้ว');
+          }
+        });
       };
 
       // ================================================================
@@ -3748,6 +3809,32 @@
                   </div>
                   <p className="text-slate-500 text-sm mb-6 ml-14 -mt-1">ใช้พิมพ์บนใบเสร็จ ใบแจ้งหนี้ และรายงาน — กรอกครั้งเดียวใช้ได้ทุกเอกสาร</p>
 
+                  <div className="flex items-center gap-4 bg-slate-50 rounded-[1.25rem] p-4 mb-6">
+                    <div className="w-16 h-16 rounded-xl bg-white border border-slate-200 flex items-center justify-center overflow-hidden shrink-0">
+                      {settings.logoUrl ? (
+                        <img src={settings.logoUrl} alt="โลโก้" className="w-full h-full object-contain" />
+                      ) : (
+                        <Icon name="ImagePlus" size={22} className="text-slate-300" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-slate-700 mb-1">โลโก้ธุรกิจ</p>
+                      <p className="text-[11px] text-slate-400">แสดงบนใบเสร็จ ใบแจ้งหนี้ (ไฟล์ภาพ ไม่เกิน 2MB)</p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <label className="px-3.5 py-2 bg-white border border-slate-200 text-slate-600 rounded-full text-xs font-bold hover:bg-slate-100 transition-colors cursor-pointer flex items-center gap-1.5">
+                        {uploadingLogo ? <Icon name="Loader2" size={13} className="animate-spin" /> : <Icon name="Upload" size={13} />}
+                        {settings.logoUrl ? 'เปลี่ยนโลโก้' : 'อัปโหลด'}
+                        <input type="file" accept="image/*" className="hidden" disabled={uploadingLogo} onChange={(e) => uploadLogo(e.target.files[0])} />
+                      </label>
+                      {settings.logoUrl && (
+                        <button type="button" onClick={removeLogo} className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-full transition-colors">
+                          <Icon name="Trash2" size={15} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
                   <form onSubmit={handleSaveBusinessSettings} className="space-y-5">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="sm:col-span-2">
@@ -3775,6 +3862,16 @@
                         <input name="promptpayId" defaultValue={settings.promptpayId} className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none text-sm font-medium" />
                       </div>
                     </div>
+
+                    {settings.logoUrl && (
+                      <label className="flex items-start gap-3 bg-indigo-50/60 border border-indigo-100 rounded-xl p-3.5 cursor-pointer">
+                        <input type="checkbox" name="logoOnQr" defaultChecked={settings.logoOnQr} className="w-4 h-4 mt-0.5 accent-indigo-600 rounded shrink-0" />
+                        <span className="text-xs">
+                          <span className="font-bold text-slate-700 block mb-0.5">ใส่โลโก้ตรงกลาง QR พร้อมเพย์</span>
+                          <span className="text-slate-500">ดูมืออาชีพขึ้น แต่แนะนำให้ลองสแกนทดสอบดูก่อน เพราะโลโก้บังพื้นที่ QR บางส่วน อาจสแกนยากขึ้นในบางเครื่อง</span>
+                        </span>
+                      </label>
+                    )}
 
                     <div className="pt-4 border-t border-slate-100">
                       <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">ข้อมูลบัญชีธนาคาร (สำหรับใบแจ้งหนี้)</p>
@@ -4590,11 +4687,16 @@
 
                 <div id="printable-receipt" className="p-8 overflow-y-auto custom-scrollbar text-slate-800">
                   <div className="flex items-start justify-between mb-8 pb-6 border-b-2 border-slate-800">
-                    <div>
-                      <h2 className="text-xl font-black">{settings.businessName}</h2>
-                      {settings.businessAddress && <p className="text-xs text-slate-500 mt-1 max-w-[220px]">{settings.businessAddress}</p>}
-                      {settings.businessPhone && <p className="text-xs text-slate-500">โทร. {settings.businessPhone}</p>}
-                      {settings.businessTaxId && <p className="text-xs text-slate-500">เลขผู้เสียภาษี {settings.businessTaxId}</p>}
+                    <div className="flex items-start gap-3">
+                      {settings.logoUrl && (
+                        <img src={settings.logoUrl} alt="" className="w-12 h-12 object-contain rounded-lg shrink-0" />
+                      )}
+                      <div>
+                        <h2 className="text-xl font-black">{settings.businessName}</h2>
+                        {settings.businessAddress && <p className="text-xs text-slate-500 mt-1 max-w-[220px]">{settings.businessAddress}</p>}
+                        {settings.businessPhone && <p className="text-xs text-slate-500">โทร. {settings.businessPhone}</p>}
+                        {settings.businessTaxId && <p className="text-xs text-slate-500">เลขผู้เสียภาษี {settings.businessTaxId}</p>}
+                      </div>
                     </div>
                     <div className="text-right">
                       <h3 className="text-2xl font-black text-indigo-600 tracking-wide">ใบเสร็จรับเงิน</h3>
@@ -4687,10 +4789,15 @@
 
                 <div id="printable-invoice" className="p-8 overflow-y-auto custom-scrollbar text-slate-800">
                   <div className="flex items-start justify-between mb-8 pb-6 border-b-2 border-slate-800">
-                    <div>
-                      <h2 className="text-xl font-black">{settings.businessName}</h2>
-                      {settings.businessAddress && <p className="text-xs text-slate-500 mt-1 max-w-[220px]">{settings.businessAddress}</p>}
-                      {settings.businessPhone && <p className="text-xs text-slate-500">โทร. {settings.businessPhone}</p>}
+                    <div className="flex items-start gap-3">
+                      {settings.logoUrl && (
+                        <img src={settings.logoUrl} alt="" className="w-12 h-12 object-contain rounded-lg shrink-0" />
+                      )}
+                      <div>
+                        <h2 className="text-xl font-black">{settings.businessName}</h2>
+                        {settings.businessAddress && <p className="text-xs text-slate-500 mt-1 max-w-[220px]">{settings.businessAddress}</p>}
+                        {settings.businessPhone && <p className="text-xs text-slate-500">โทร. {settings.businessPhone}</p>}
+                      </div>
                     </div>
                     <div className="text-right">
                       <h3 className="text-2xl font-black text-rose-500 tracking-wide">ใบแจ้งหนี้</h3>
@@ -4745,10 +4852,11 @@
                       </div>
                       {settings.promptpayId && (
                         <div className="text-center">
-                          <img
-                            src={`https://promptpay.io/${settings.promptpayId}/${formatMoneyForQR(invoiceStudent.price)}.png`}
-                            alt="PromptPay QR"
-                            className="w-32 h-32 mx-auto rounded-lg border border-slate-200 bg-white p-1"
+                          <BrandedQR
+                            qrUrl={`https://promptpay.io/${settings.promptpayId}/${formatMoneyForQR(invoiceStudent.price)}.png`}
+                            logoUrl={settings.logoUrl}
+                            showLogo={settings.logoOnQr}
+                            size={128}
                           />
                           <p className="text-[10px] text-slate-400 font-bold mt-1">สแกนจ่ายผ่านพร้อมเพย์</p>
                         </div>
