@@ -28,7 +28,7 @@
 
   <style>
     /* Prevent any element from ever forcing horizontal page scroll on any device */
-    html, body { overflow-x: hidden; max-width: 100vw; }
+    html, body { overflow-x: hidden; max-width: 100vw; scroll-behavior: smooth; }
     * { min-width: 0; }
 
     /* Typography */
@@ -65,6 +65,10 @@
     .spark-line { fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
     .spark-fill { opacity: 0.14; }
 
+    /* Tactile press feedback on every button — the "feels alive" detail */
+    button:not(:disabled) { transition: transform .12s cubic-bezier(0.34, 1.56, 0.64, 1), background-color .15s ease, color .15s ease, box-shadow .15s ease, opacity .15s ease; }
+    button:not(:disabled):active { transform: scale(0.96); }
+
     /* Command palette / notification entrance */
     @keyframes cmdIn { from { opacity: 0; transform: translateY(-12px) scale(.98) } to { opacity: 1; transform: translateY(0) scale(1) } }
     .cmd-in { animation: cmdIn .18s ease-out both; }
@@ -95,7 +99,7 @@
     @keyframes slideFromBottom2Kf { from { opacity: 0; transform: translateY(10px) } to { opacity: 1; transform: translateY(0) } }
     @keyframes slideFromBottom5Kf { from { opacity: 0; transform: translateY(24px) } to { opacity: 1; transform: translateY(0) } }
     @keyframes slideFromTop2Kf { from { opacity: 0; transform: translateY(-10px) } to { opacity: 1; transform: translateY(0) } }
-    .animate-in { animation-duration: .2s; animation-timing-function: ease-out; animation-fill-mode: both; }
+    .animate-in { animation-duration: .2s; animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); animation-fill-mode: both; }
     .fade-in { animation-name: fadeInKf; }
     .zoom-in-95 { animation-name: zoomIn95Kf; }
     .slide-in-from-bottom-2 { animation-name: slideFromBottom2Kf; }
@@ -204,7 +208,8 @@
       isHoliday: false, holidayReason: '', holidayStart: '', holidayReturn: '',
       promptpayId: '', driveFolderUrl: '',
       businessName: 'สถาบันกวดวิชา', businessAddress: '', businessPhone: '', businessTaxId: '',
-      bankName: '', bankAccountNo: '', bankAccountName: '', signatureName: ''
+      bankName: '', bankAccountNo: '', bankAccountName: '', signatureName: '',
+      receiptPrefix: 'RC-', invoicePrefix: 'INV-'
     };
 
     // ================================================================
@@ -933,10 +938,11 @@
       const { rows: courses, setRows: setCourses, loading: loadingCourses } = useRealtimeTable('courses');
       const { rows: tasks, setRows: setTasks, loading: loadingTasks } = useRealtimeTable('tasks');
       const { rows: quickReplies, setRows: setQuickReplies, loading: loadingQR } = useRealtimeTable('quick_replies');
+      const { rows: documents, setRows: setDocuments, loading: loadingDocuments } = useRealtimeTable('documents');
       const { settings, save: saveSettingsRaw, loading: loadingSettings } = useSettings(session);
 
       const isLoading = loadingStudents || loadingLogs || loadingScores || loadingFinances ||
-        loadingMaterials || loadingCourses || loadingTasks || loadingQR || loadingSettings;
+        loadingMaterials || loadingCourses || loadingTasks || loadingQR || loadingDocuments || loadingSettings;
 
       const holidayConfig = useMemo(() => ({
         isHoliday: settings.isHoliday,
@@ -950,11 +956,18 @@
 
       // Toast
       const [toast, setToast] = useState(null); // { message, type }
+      const [toastLeaving, setToastLeaving] = useState(false);
       const toastTimerRef = useRef(null);
+      const toastExitTimerRef = useRef(null);
       const showToast = (message, type = 'success') => {
-        setToast({ message, type: type || 'success' });
         if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-        toastTimerRef.current = setTimeout(() => setToast(null), 3200);
+        if (toastExitTimerRef.current) clearTimeout(toastExitTimerRef.current);
+        setToastLeaving(false);
+        setToast({ message, type: type || 'success' });
+        toastTimerRef.current = setTimeout(() => {
+          setToastLeaving(true);
+          toastExitTimerRef.current = setTimeout(() => setToast(null), 220);
+        }, 3200);
       };
 
       // Confirm dialog (ใช้แทน window.confirm ทั่วทั้งแอป)
@@ -998,6 +1011,7 @@
 
       // Settings (form-only local state for quick replies input)
       const [newQuickReply, setNewQuickReply] = useState({ title: '', text: '' });
+      const [docSearchQuery, setDocSearchQuery] = useState('');
 
       // Tasks
       const [newTaskText, setNewTaskText] = useState('');
@@ -1394,6 +1408,18 @@
         return { day: best, count: counts[best] };
       }, [calendarEvents]);
 
+      const cashFlowForecast = useMemo(() => {
+        const pendingList = students.filter(s => s.status === 'กำลังเรียน' && (s.paymentStatus === 'ยังไม่ชำระ' || s.paymentStatus === 'ค้างชำระ'));
+        const pendingNow = pendingList.reduce((sum, s) => sum + (parseFloat(s.price) || 0), 0);
+        const renewalList = students.filter(s =>
+          s.status === 'กำลังเรียน' && s.paymentStatus === 'ชำระแล้ว' && s.courseType !== 'รายปี' &&
+          (parseFloat(s.hoursTotal) - (parseFloat(s.hoursUsed) || 0)) <= 3
+        );
+        const likelyRenewals = renewalList.reduce((sum, s) => sum + (parseFloat(s.basePrice) || parseFloat(s.price) || 0), 0);
+        const total = pendingNow + likelyRenewals;
+        return { pendingNow, likelyRenewals, total, pendingCount: pendingList.length, renewalCount: renewalList.length };
+      }, [students]);
+
       const notifications = useMemo(() => {
         const items = [];
         overdueStudents.forEach(s => items.push({
@@ -1691,7 +1717,8 @@
               date: paymentDate,
               description: `ค่าเรียน ${savedStudent.name}`,
               amount: savedStudent.price,
-              type: 'income'
+              type: 'income',
+              studentId: savedStudent.id
             };
             const savedFinance = await dbInsert('finances', newFinance);
             setFinances(prev => [savedFinance, ...prev]);
@@ -1898,14 +1925,26 @@
       };
 
       const deleteFinanceItem = (item) => {
+        const linkedStudent = item.studentId ? students.find(s => s.id === item.studentId) : null;
+        const willRevertStatus = linkedStudent && linkedStudent.paymentStatus === 'ชำระแล้ว' && Math.abs(parseFloat(linkedStudent.price) - parseFloat(item.amount)) < 0.01;
+
         askConfirm({
           title: 'ลบรายการนี้?',
-          message: `ลบ "${item.description}" จำนวน ฿${parseFloat(item.amount).toLocaleString()} ออกจากบัญชี`,
+          message: willRevertStatus
+            ? `ลบ "${item.description}" จำนวน ฿${parseFloat(item.amount).toLocaleString()} ออกจากบัญชี — รายการนี้ผูกกับสถานะการชำระเงินของ "${linkedStudent.name}" ระบบจะเปลี่ยนสถานะกลับเป็น "ยังไม่ชำระ" ให้อัตโนมัติ เพื่อให้ข้อมูลตรงกัน`
+            : `ลบ "${item.description}" จำนวน ฿${parseFloat(item.amount).toLocaleString()} ออกจากบัญชี`,
           confirmLabel: 'ลบรายการ',
           onConfirm: async () => {
             await dbDelete('finances', item.id);
             setFinances(prev => prev.filter(f => f.id !== item.id));
-            showToast('ลบรายการการเงินสำเร็จ');
+            if (willRevertStatus) {
+              const savedStudent = await dbUpdate('students', linkedStudent.id, { paymentStatus: 'ยังไม่ชำระ', paymentMethod: '', paymentDate: '', paymentTime: '' });
+              setStudents(prev => prev.map(s => s.id === linkedStudent.id ? savedStudent : s));
+              if (viewingStudent && viewingStudent.id === linkedStudent.id) setViewingStudent(savedStudent);
+              showToast(`ลบรายการสำเร็จ และปรับสถานะ ${linkedStudent.name} กลับเป็น "ยังไม่ชำระ" แล้ว`);
+            } else {
+              showToast('ลบรายการการเงินสำเร็จ');
+            }
           }
         });
       };
@@ -2075,7 +2114,7 @@
       const exportAllData = () => {
         const payload = {
           exportedAt: new Date().toISOString(),
-          students, teachingLogs, examScores, finances, materials, courses, tasks, quickReplies, settings
+          students, teachingLogs, examScores, finances, materials, courses, tasks, quickReplies, documents, settings
         };
         const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
@@ -2112,6 +2151,7 @@
                   ['materials', payload.materials],
                   ['tasks', payload.tasks],
                   ['quick_replies', payload.quickReplies],
+                  ['documents', payload.documents],
                 ];
                 for (const [table, rows] of tableMap) {
                   if (!Array.isArray(rows) || rows.length === 0) continue;
@@ -2183,7 +2223,9 @@
             bankAccountName: formData.get('bankAccountName') || '',
             signatureName: formData.get('signatureName') || '',
             promptpayId: formData.get('promptpayId') || '',
-            driveFolderUrl: formData.get('driveFolderUrl') || ''
+            driveFolderUrl: formData.get('driveFolderUrl') || '',
+            receiptPrefix: formData.get('receiptPrefix') || 'RC-',
+            invoicePrefix: formData.get('invoicePrefix') || 'INV-'
           });
           showToast('บันทึกข้อมูลสำหรับออกเอกสารเรียบร้อยแล้ว');
         } catch (error) {
@@ -2191,6 +2233,56 @@
         } finally {
           setSavingBusiness(false);
         }
+      };
+
+      // ================================================================
+      // --- ระบบเลขที่เอกสาร (ทะเบียนใบเสร็จ/ใบแจ้งหนี้ถาวร) ---
+      // แต่ละใบที่ "ออกเลขที่" แล้วจะได้เลขที่ถาวร ไม่เปลี่ยนแม้ข้อมูลนักเรียนจะถูกแก้ไขภายหลัง
+      // ================================================================
+      const [issuingDoc, setIssuingDoc] = useState(false);
+
+      const generateDocNumber = (docType) => {
+        const beYear = new Date().getFullYear() + 543;
+        const prefix = docType === 'receipt' ? (settings.receiptPrefix || 'RC-') : (settings.invoicePrefix || 'INV-');
+        const yearTag = `${prefix}${beYear}-`;
+        const countThisYear = documents.filter(d => d.docType === docType && d.docNumber.startsWith(yearTag)).length;
+        return `${yearTag}${String(countThisYear + 1).padStart(4, '0')}`;
+      };
+
+      const findExistingDoc = (docType, studentId, amount, date) => documents.find(d =>
+        d.docType === docType && d.studentId === studentId &&
+        Math.abs(parseFloat(d.amount) - parseFloat(amount)) < 0.01 && d.issueDate === date
+      );
+
+      const issueDocument = async (docType, student, amount, date) => {
+        setIssuingDoc(true);
+        try {
+          const docNumber = generateDocNumber(docType);
+          const saved = await dbInsert('documents', {
+            docType, docNumber,
+            studentId: student.id, studentName: student.name,
+            amount: parseFloat(amount) || 0,
+            issueDate: date || new Date().toISOString().split('T')[0]
+          });
+          setDocuments(prev => [saved, ...prev]);
+          showToast(`ออกเลขที่เอกสาร ${docNumber} เรียบร้อยแล้ว`);
+          return saved;
+        } catch (error) {
+          showToast('ออกเลขที่เอกสารไม่สำเร็จ: ' + (error.message || 'เกิดข้อผิดพลาด'), 'error');
+          return null;
+        } finally {
+          setIssuingDoc(false);
+        }
+      };
+
+      const reprintDocument = (doc) => {
+        const snapshotStudent = {
+          id: doc.studentId, name: doc.studentName, payerName: doc.studentName,
+          price: doc.amount, courseType: 'ตามเอกสาร', paymentDate: doc.issueDate,
+          paymentMethod: '', paymentTime: ''
+        };
+        if (doc.docType === 'receipt') setReceiptStudent(snapshotStudent);
+        else setInvoiceStudent(snapshotStudent);
       };
 
       // --- Dynamic Form Handlers ---
@@ -2477,7 +2569,7 @@
           <main className="max-w-7xl w-full mx-auto relative z-10 flex-1 no-print">
 
             {activeTab === 'dashboard' && (
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-6 lg:gap-8 auto-rows-[minmax(160px,auto)]">
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-6 lg:gap-8 auto-rows-[minmax(160px,auto)] animate-in fade-in duration-300">
 
                 <div className="col-span-1 md:col-span-12 relative z-30 mb-2">
                   <div className="bg-white/80 backdrop-blur-2xl p-2 pl-5 rounded-[1.5rem] border border-white shadow-2xl shadow-indigo-950/[0.07] flex items-center gap-3 transition-all hover:shadow-indigo-500/10 hover:border-indigo-100">
@@ -2879,11 +2971,50 @@
                   <p className="text-[11px] text-slate-400 font-bold">วันที่มีคาบเรียนมากที่สุด ({busiestDay.count} คาบ)</p>
                 </div>
 
+                <div className="col-span-1 md:col-span-12 bento-card p-6 lg:p-8">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2.5 bg-gradient-to-br from-emerald-500 to-teal-500 text-white rounded-[0.8rem] shadow-md shadow-emerald-500/20">
+                        <Icon name="Radar" size={18} strokeWidth={2.5} />
+                      </div>
+                      <div>
+                        <h3 className="font-black text-slate-800 text-base">คาดการณ์รายรับ 30 วันข้างหน้า</h3>
+                        <p className="text-[11px] text-slate-400 font-bold">รวมยอดค้าง/รอชำระ และนักเรียนที่ใกล้หมดชั่วโมง (มักต่อคอร์สเร็วๆ นี้)</p>
+                      </div>
+                    </div>
+                    <p className="text-3xl font-black text-emerald-600 tracking-tight">฿{cashFlowForecast.total.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+                  </div>
+
+                  {cashFlowForecast.total > 0 && (
+                    <div className="w-full h-3 rounded-full overflow-hidden flex bg-slate-100 mb-4">
+                      <div className="h-full bg-gradient-to-r from-rose-400 to-rose-500" style={{ width: `${(cashFlowForecast.pendingNow / cashFlowForecast.total) * 100}%` }}></div>
+                      <div className="h-full bg-gradient-to-r from-teal-400 to-emerald-500" style={{ width: `${(cashFlowForecast.likelyRenewals / cashFlowForecast.total) * 100}%` }}></div>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="flex items-center gap-3 bg-rose-50/60 rounded-xl p-3.5">
+                      <div className="w-2.5 h-2.5 rounded-full bg-rose-500 shrink-0"></div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-black text-slate-800">฿{cashFlowForecast.pendingNow.toLocaleString()}</p>
+                        <p className="text-[11px] text-slate-500 font-bold">ยอดค้าง/รอชำระตอนนี้ ({cashFlowForecast.pendingCount} คน)</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 bg-emerald-50/60 rounded-xl p-3.5">
+                      <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0"></div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-black text-slate-800">฿{cashFlowForecast.likelyRenewals.toLocaleString()}</p>
+                        <p className="text-[11px] text-slate-500 font-bold">คาดว่าจะต่อคอร์สเร็วๆ นี้ ({cashFlowForecast.renewalCount} คน)</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
               </div>
             )}
 
             {activeTab === 'tasks' && (
-              <div className="max-w-4xl mx-auto space-y-6 lg:space-y-8">
+              <div className="max-w-4xl mx-auto space-y-6 lg:space-y-8 animate-in fade-in duration-300">
                 <div className="bg-white/80 backdrop-blur-2xl rounded-[1.5rem] shadow-2xl shadow-indigo-950/[0.07] border border-white p-6 md:p-8">
                   <div className="flex items-center gap-3 mb-6">
                     <div className="w-12 h-12 rounded-[1rem] bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-500/30">
@@ -2934,7 +3065,7 @@
             )}
 
             {activeTab === 'calendar' && (
-              <div className="space-y-6 lg:space-y-8">
+              <div className="space-y-6 lg:space-y-8 animate-in fade-in duration-300">
                 <div className="bg-white/80 backdrop-blur-2xl rounded-[1.5rem] shadow-2xl shadow-indigo-950/[0.07] border border-white p-5 md:p-8">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                     <div className="flex items-center gap-3">
@@ -2989,7 +3120,7 @@
             )}
 
             {activeTab === 'courses' && (
-              <div className="space-y-6 lg:space-y-8">
+              <div className="space-y-6 lg:space-y-8 animate-in fade-in duration-300">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
                     <div className="w-12 h-12 rounded-[1rem] bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-500/30">
@@ -3062,7 +3193,7 @@
             )}
 
             {activeTab === 'materials' && (
-              <div className="space-y-6 lg:space-y-8">
+              <div className="space-y-6 lg:space-y-8 animate-in fade-in duration-300">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
                     <div className="w-12 h-12 rounded-[1rem] bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-500/30">
@@ -3139,7 +3270,7 @@
             )}
 
             {activeTab === 'students' && (
-              <div className="space-y-6 lg:space-y-8">
+              <div className="space-y-6 lg:space-y-8 animate-in fade-in duration-300">
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
                     <div className="w-12 h-12 rounded-[1rem] bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-500/30">
@@ -3231,7 +3362,7 @@
             )}
 
             {activeTab === 'teaching' && (
-              <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 lg:gap-8 items-start">
+              <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 lg:gap-8 items-start animate-in fade-in duration-300">
                 <div className="lg:col-span-2 bg-white/80 backdrop-blur-2xl rounded-[1.5rem] shadow-2xl shadow-indigo-950/[0.07] border border-white p-6 md:p-8 lg:sticky lg:top-8">
                   <div className="flex items-center gap-3 mb-6">
                     <div className="w-12 h-12 rounded-[1rem] bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-500/30">
@@ -3362,7 +3493,7 @@
             )}
 
             {activeTab === 'scores' && (
-              <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 lg:gap-8 items-start">
+              <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 lg:gap-8 items-start animate-in fade-in duration-300">
                 <div className="lg:col-span-2 bg-white/80 backdrop-blur-2xl rounded-[1.5rem] shadow-2xl shadow-indigo-950/[0.07] border border-white p-6 md:p-8 lg:sticky lg:top-8">
                   <div className="flex items-center gap-3 mb-6">
                     <div className="w-12 h-12 rounded-[1rem] bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-500/30">
@@ -3487,7 +3618,7 @@
             )}
 
             {activeTab === 'finance' && (
-              <div className="space-y-6 lg:space-y-8">
+              <div className="space-y-6 lg:space-y-8 animate-in fade-in duration-300">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
                     <div className="w-12 h-12 rounded-[1rem] bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-500/30">
@@ -3587,7 +3718,7 @@
             )}
 
             {activeTab === 'settings' && (
-              <div className="max-w-4xl mx-auto space-y-6 lg:space-y-8">
+              <div className="max-w-4xl mx-auto space-y-6 lg:space-y-8 animate-in fade-in duration-300">
 
                 {/* บัญชีผู้ใช้ */}
                 <div className="bg-white/80 backdrop-blur-2xl rounded-[1.5rem] shadow-2xl shadow-indigo-950/[0.07] border border-white p-6 md:p-8">
@@ -3657,6 +3788,22 @@
                     <div className="pt-4 border-t border-slate-100">
                       <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">ลิงก์โฟลเดอร์ Google Drive หลัก (สำหรับแท็บชีทเรียน)</label>
                       <input name="driveFolderUrl" defaultValue={settings.driveFolderUrl} placeholder="https://drive.google.com/..." className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none text-sm font-medium" />
+                    </div>
+
+                    <div className="pt-4 border-t border-slate-100">
+                      <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">รูปแบบเลขที่เอกสาร (ออกอัตโนมัติเรียงลำดับตามปี พ.ศ.)</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-400 mb-1.5">คำนำหน้าใบเสร็จ</label>
+                          <input name="receiptPrefix" defaultValue={settings.receiptPrefix} placeholder="RC-" className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none text-sm font-bold" />
+                          <p className="text-[10px] text-slate-400 mt-1">ตัวอย่าง: {settings.receiptPrefix || 'RC-'}{new Date().getFullYear() + 543}-0001</p>
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-400 mb-1.5">คำนำหน้าใบแจ้งหนี้</label>
+                          <input name="invoicePrefix" defaultValue={settings.invoicePrefix} placeholder="INV-" className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none text-sm font-bold" />
+                          <p className="text-[10px] text-slate-400 mt-1">ตัวอย่าง: {settings.invoicePrefix || 'INV-'}{new Date().getFullYear() + 543}-0001</p>
+                        </div>
+                      </div>
                     </div>
 
                     <button type="submit" disabled={savingBusiness} className="w-full sm:w-auto px-8 py-3.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-xl font-bold shadow-md shadow-indigo-600/25 hover:from-indigo-700 hover:to-violet-700 transition-all flex items-center justify-center gap-2 disabled:opacity-60">
@@ -3746,6 +3893,58 @@
                   </div>
                 </div>
 
+                {/* ทะเบียนเอกสาร */}
+                <div className="bg-white/80 backdrop-blur-2xl rounded-[1.5rem] shadow-2xl shadow-indigo-950/[0.07] border border-white p-6 md:p-8">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-11 h-11 rounded-[0.9rem] bg-gradient-to-br from-indigo-600 to-violet-600 text-white flex items-center justify-center shadow-md shadow-indigo-500/30"><Icon name="Hash" size={20} /></div>
+                    <h2 className="text-xl font-black text-slate-800 tracking-tight">ทะเบียนเอกสาร</h2>
+                  </div>
+                  <p className="text-slate-500 text-sm mb-5 ml-14 -mt-1">ประวัติใบเสร็จ/ใบแจ้งหนี้ทุกฉบับที่เคยออกเลขที่ พร้อมพิมพ์ซ้ำได้ทุกเมื่อ · ทั้งหมด {documents.length} ฉบับ</p>
+
+                  {documents.length > 0 && (
+                    <div className="flex items-center gap-3 bg-slate-50 rounded-full px-4 py-2.5 border border-slate-100 mb-4">
+                      <Icon name="Search" size={16} className="text-slate-400 shrink-0" />
+                      <input
+                        type="text"
+                        value={docSearchQuery}
+                        onChange={(e) => setDocSearchQuery(e.target.value)}
+                        placeholder="ค้นหาเลขที่เอกสาร หรือชื่อนักเรียน..."
+                        className="w-full bg-transparent outline-none text-sm font-bold text-slate-700 placeholder:text-slate-400"
+                      />
+                    </div>
+                  )}
+
+                  <div className="space-y-2 max-h-[420px] overflow-y-auto custom-scrollbar pr-1">
+                    {documents.length === 0 ? (
+                      <p className="text-center text-slate-400 font-bold py-8 text-sm">ยังไม่มีเอกสารที่ออกเลขที่ — เปิดใบเสร็จ/ใบแจ้งหนี้ของนักเรียนแล้วกด "ออกเลขที่เอกสาร" เพื่อเริ่มต้น</p>
+                    ) : (
+                      documents
+                        .filter(d => !docSearchQuery.trim() ||
+                          d.docNumber.toLowerCase().includes(docSearchQuery.toLowerCase()) ||
+                          d.studentName.toLowerCase().includes(docSearchQuery.toLowerCase()))
+                        .map(doc => (
+                          <div key={doc.id} className="flex items-center justify-between gap-3 bg-slate-50/60 border border-slate-100 rounded-[1.1rem] p-3.5 group">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${doc.docType === 'receipt' ? 'bg-indigo-100 text-indigo-600' : 'bg-rose-100 text-rose-500'}`}>
+                                <Icon name={doc.docType === 'receipt' ? 'Receipt' : 'FileText'} size={15} />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="font-bold text-slate-800 text-sm truncate">{doc.docNumber}</p>
+                                <p className="text-[11px] text-slate-400 font-bold truncate">{doc.studentName} · {formatShortDate(doc.issueDate)}</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-3 shrink-0">
+                              <span className="text-sm font-black text-slate-700 whitespace-nowrap">฿{parseFloat(doc.amount).toLocaleString()}</span>
+                              <button onClick={() => reprintDocument(doc)} className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-100 rounded-lg transition-colors opacity-0 group-hover:opacity-100" title="เปิดดู/พิมพ์ซ้ำ">
+                                <Icon name="Printer" size={14} />
+                              </button>
+                            </div>
+                          </div>
+                        ))
+                    )}
+                  </div>
+                </div>
+
                 {/* ข้อความตอบกลับด่วน */}
                 <div className="bg-white/80 backdrop-blur-2xl rounded-[1.5rem] shadow-2xl shadow-indigo-950/[0.07] border border-white p-6 md:p-8">
                   <div className="flex items-center gap-3 mb-6">
@@ -3805,7 +4004,9 @@
           </footer>
 
           {toast && (
-            <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] px-5 py-3.5 rounded-full shadow-2xl font-bold text-sm flex items-center gap-2.5 animate-in slide-in-from-bottom-5 duration-300 no-print ${
+            <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] px-5 py-3.5 rounded-full shadow-2xl font-bold text-sm flex items-center gap-2.5 no-print transition-all duration-200 ease-out ${
+              toastLeaving ? 'opacity-0 translate-y-2 scale-95' : 'opacity-100 translate-y-0 scale-100 animate-in slide-in-from-bottom-5 duration-300'
+            } ${
               toast.type === 'error' ? 'bg-rose-600 text-white' : 'bg-slate-800 text-white'
             }`}>
               <Icon name={toast.type === 'error' ? 'AlertCircle' : 'CheckCircle'} size={18} className={toast.type === 'error' ? 'text-rose-200' : 'text-emerald-400'} />
@@ -4355,13 +4556,16 @@
           })()}
 
           {/* ============================== MODAL: ใบเสร็จรับเงิน ============================== */}
-          {receiptStudent && (
+          {receiptStudent && (() => {
+            const rDate = receiptStudent.paymentDate || new Date().toISOString().split('T')[0];
+            const existingDoc = findExistingDoc('receipt', receiptStudent.id, receiptStudent.price, rDate);
+            return (
             <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[95] print-wrapper">
               <div className="bg-white rounded-[1.5rem] shadow-2xl w-full max-w-lg animate-in fade-in zoom-in-95 duration-200 max-h-[92vh] flex flex-col print-modal">
                 <div className="flex items-center justify-between p-5 border-b border-slate-100 no-print shrink-0">
                   <h3 className="text-lg font-black text-slate-800">ใบเสร็จรับเงิน</h3>
                   <div className="flex items-center gap-2">
-                    <button onClick={() => window.print()} className="px-4 py-2 bg-indigo-600 text-white rounded-full text-xs font-bold flex items-center gap-1.5 hover:bg-indigo-700 transition-colors">
+                    <button onClick={() => window.print()} className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-full text-xs font-bold flex items-center gap-1.5 hover:from-indigo-700 hover:to-violet-700 transition-colors">
                       <Icon name="Printer" size={14} /> พิมพ์ / บันทึก PDF
                     </button>
                     <button onClick={() => setReceiptStudent(null)} className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-full transition-colors">
@@ -4369,6 +4573,20 @@
                     </button>
                   </div>
                 </div>
+
+                {!existingDoc && (
+                  <div className="mx-5 mt-4 p-3.5 bg-amber-50 border border-amber-100 rounded-xl flex items-center justify-between gap-3 no-print">
+                    <p className="text-xs font-bold text-amber-700 flex items-center gap-1.5"><Icon name="AlertTriangle" size={13} /> ยังไม่ได้ออกเลขที่เอกสารอย่างเป็นทางการ</p>
+                    <button
+                      onClick={() => issueDocument('receipt', receiptStudent, receiptStudent.price, rDate)}
+                      disabled={issuingDoc}
+                      className="px-3.5 py-1.5 bg-amber-500 text-white rounded-full text-[11px] font-bold hover:bg-amber-600 transition-colors flex items-center gap-1.5 shrink-0 disabled:opacity-60"
+                    >
+                      {issuingDoc ? <Icon name="Loader2" size={12} className="animate-spin" /> : <Icon name="Hash" size={12} />}
+                      ออกเลขที่เอกสาร
+                    </button>
+                  </div>
+                )}
 
                 <div id="printable-receipt" className="p-8 overflow-y-auto custom-scrollbar text-slate-800">
                   <div className="flex items-start justify-between mb-8 pb-6 border-b-2 border-slate-800">
@@ -4381,6 +4599,7 @@
                     <div className="text-right">
                       <h3 className="text-2xl font-black text-indigo-600 tracking-wide">ใบเสร็จรับเงิน</h3>
                       <p className="text-xs text-slate-400 font-bold mt-1">RECEIPT</p>
+                      <p className="text-xs font-bold text-slate-600 mt-1">{existingDoc ? existingDoc.docNumber : 'เลขที่: (ฉบับร่าง)'}</p>
                     </div>
                   </div>
 
@@ -4391,7 +4610,7 @@
                     </div>
                     <div className="text-right">
                       <p className="text-[11px] font-bold text-slate-400 uppercase mb-1">วันที่</p>
-                      <p className="font-bold">{formatShortDate(receiptStudent.paymentDate) || formatShortDate(new Date().toISOString())}</p>
+                      <p className="font-bold">{formatShortDate(rDate)}</p>
                     </div>
                   </div>
 
@@ -4430,16 +4649,20 @@
                 </div>
               </div>
             </div>
-          )}
+            );
+          })()}
 
           {/* ============================== MODAL: ใบแจ้งหนี้ ============================== */}
-          {invoiceStudent && (
+          {invoiceStudent && (() => {
+            const iDate = invoiceStudent.paymentDate || new Date().toISOString().split('T')[0];
+            const existingInvDoc = findExistingDoc('invoice', invoiceStudent.id, invoiceStudent.price, iDate);
+            return (
             <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[95] print-wrapper">
               <div className="bg-white rounded-[1.5rem] shadow-2xl w-full max-w-lg animate-in fade-in zoom-in-95 duration-200 max-h-[92vh] flex flex-col print-modal">
                 <div className="flex items-center justify-between p-5 border-b border-slate-100 no-print shrink-0">
                   <h3 className="text-lg font-black text-slate-800">ใบแจ้งหนี้</h3>
                   <div className="flex items-center gap-2">
-                    <button onClick={() => window.print()} className="px-4 py-2 bg-indigo-600 text-white rounded-full text-xs font-bold flex items-center gap-1.5 hover:bg-indigo-700 transition-colors">
+                    <button onClick={() => window.print()} className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-full text-xs font-bold flex items-center gap-1.5 hover:from-indigo-700 hover:to-violet-700 transition-colors">
                       <Icon name="Printer" size={14} /> พิมพ์ / บันทึก PDF
                     </button>
                     <button onClick={() => setInvoiceStudent(null)} className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-full transition-colors">
@@ -4447,6 +4670,20 @@
                     </button>
                   </div>
                 </div>
+
+                {!existingInvDoc && (
+                  <div className="mx-5 mt-4 p-3.5 bg-amber-50 border border-amber-100 rounded-xl flex items-center justify-between gap-3 no-print">
+                    <p className="text-xs font-bold text-amber-700 flex items-center gap-1.5"><Icon name="AlertTriangle" size={13} /> ยังไม่ได้ออกเลขที่เอกสารอย่างเป็นทางการ</p>
+                    <button
+                      onClick={() => issueDocument('invoice', invoiceStudent, invoiceStudent.price, iDate)}
+                      disabled={issuingDoc}
+                      className="px-3.5 py-1.5 bg-amber-500 text-white rounded-full text-[11px] font-bold hover:bg-amber-600 transition-colors flex items-center gap-1.5 shrink-0 disabled:opacity-60"
+                    >
+                      {issuingDoc ? <Icon name="Loader2" size={12} className="animate-spin" /> : <Icon name="Hash" size={12} />}
+                      ออกเลขที่เอกสาร
+                    </button>
+                  </div>
+                )}
 
                 <div id="printable-invoice" className="p-8 overflow-y-auto custom-scrollbar text-slate-800">
                   <div className="flex items-start justify-between mb-8 pb-6 border-b-2 border-slate-800">
@@ -4458,6 +4695,7 @@
                     <div className="text-right">
                       <h3 className="text-2xl font-black text-rose-500 tracking-wide">ใบแจ้งหนี้</h3>
                       <p className="text-xs text-slate-400 font-bold mt-1">INVOICE</p>
+                      <p className="text-xs font-bold text-slate-600 mt-1">{existingInvDoc ? existingInvDoc.docNumber : 'เลขที่: (ฉบับร่าง)'}</p>
                     </div>
                   </div>
 
@@ -4468,7 +4706,7 @@
                     </div>
                     <div className="text-right">
                       <p className="text-[11px] font-bold text-slate-400 uppercase mb-1">วันที่ออกเอกสาร</p>
-                      <p className="font-bold">{formatShortDate(new Date().toISOString())}</p>
+                      <p className="font-bold">{formatShortDate(iDate)}</p>
                     </div>
                   </div>
 
@@ -4529,7 +4767,8 @@
                 </div>
               </div>
             </div>
-          )}
+            );
+          })()}
 
           {/* ============================== MODAL: รายงานพัฒนาการนักเรียน ============================== */}
           {reportStudent && (() => {
