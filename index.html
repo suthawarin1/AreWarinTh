@@ -129,7 +129,9 @@
       !SUPABASE_ANON_KEY.startsWith('YOUR');
 
     const sb = (isSupabaseConfigured && window.supabase)
-      ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+      ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+          auth: { persistSession: false }
+        })
       : null;
 
     // ================================================================
@@ -2299,14 +2301,14 @@
       const NavItem = React.memo(({ id, iconName, label }) => (
         <button
           onClick={() => setActiveTab(id)}
-          className={`flex items-center gap-2.5 px-5 lg:px-6 py-3 rounded-full transition-all duration-300 font-bold text-sm whitespace-nowrap ${
+          className={`flex items-center gap-2 px-3.5 lg:px-6 py-3 rounded-full transition-all duration-300 font-bold text-sm whitespace-nowrap shrink-0 ${
             activeTab === id
               ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
               : 'text-slate-500 hover:bg-slate-100 hover:text-indigo-600'
           }`}
         >
           <Icon name={iconName} size={18} strokeWidth={2.5} />
-          <span className="hidden md:inline tracking-wide">{label}</span>
+          <span className="hidden lg:inline tracking-wide">{label}</span>
         </button>
       ));
 
