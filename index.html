@@ -27,6 +27,10 @@
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 
   <style>
+    /* Prevent any element from ever forcing horizontal page scroll on any device */
+    html, body { overflow-x: hidden; max-width: 100vw; }
+    * { min-width: 0; }
+
     /* Typography */
     html, body { font-family: 'Plus Jakarta Sans', 'Noto Sans Thai', system-ui, -apple-system, sans-serif; }
     .font-display { font-family: 'Plus Jakarta Sans', 'Noto Sans Thai', system-ui, sans-serif; letter-spacing: -0.02em; }
@@ -2332,8 +2336,8 @@
               </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
-              <div className="relative flex items-center w-full md:w-auto max-w-full group">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full min-w-0 md:flex-1">
+              <div className="relative flex items-center w-full min-w-0 flex-1 group">
                 <button
                   onClick={() => handleScroll(navRef, 'left', 250)}
                   className="hidden md:flex absolute -left-4 z-20 bg-white/90 p-2 shadow-[2px_0_10px_rgba(0,0,0,0.1)] rounded-full text-slate-400 hover:text-indigo-600 opacity-60 hover:opacity-100 transition-opacity border border-slate-100"
@@ -2341,7 +2345,7 @@
                   <Icon name="ChevronLeft" size={18} />
                 </button>
 
-                <nav ref={navRef} className="flex items-center gap-1.5 bg-white/70 backdrop-blur-xl p-1.5 rounded-full shadow-sm shadow-slate-200/50 border border-white overflow-x-auto custom-scrollbar w-full md:w-auto scroll-smooth">
+                <nav ref={navRef} className="flex items-center gap-1.5 bg-white/70 backdrop-blur-xl p-1.5 rounded-full shadow-sm shadow-slate-200/50 border border-white overflow-x-auto custom-scrollbar w-full min-w-0 scroll-smooth">
                   <NavItem id="dashboard" iconName="LayoutGrid" label="ภาพรวม" />
                   <NavItem id="tasks" iconName="CheckSquare" label="สิ่งที่ต้องทำ" />
                   <NavItem id="calendar" iconName="CalendarDays" label="ตารางสอน" />
@@ -2904,51 +2908,35 @@
                     </button>
                   </div>
 
-                  <div className="relative">
-                    <button
-                      onClick={() => handleScroll(calendarScrollRef, 'left', 200)}
-                      className="hidden md:flex absolute -left-3 top-1/2 -translate-y-1/2 z-20 bg-white p-2 shadow-lg rounded-full text-slate-400 hover:text-indigo-600 border border-slate-100"
-                    >
-                      <Icon name="ChevronLeft" size={18} />
-                    </button>
-                    <div ref={calendarScrollRef} className="overflow-x-auto custom-scrollbar pb-2">
-                      <div className="grid grid-cols-7 gap-3 min-w-[900px]">
-                        {daysOfWeek.map(day => (
-                          <div key={day} className={`rounded-[1.5rem] p-3 border ${day === todayName ? 'bg-indigo-50 border-indigo-200' : 'bg-slate-50/60 border-slate-100'}`}>
-                            <div className="text-center mb-3">
-                              <p className={`font-black text-sm ${day === todayName ? 'text-indigo-600' : 'text-slate-600'}`}>{day}</p>
-                              {day === todayName && <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-widest">วันนี้</span>}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3">
+                    {daysOfWeek.map(day => (
+                      <div key={day} className={`rounded-[1.5rem] p-3 border ${day === todayName ? 'bg-indigo-50 border-indigo-200' : 'bg-slate-50/60 border-slate-100'}`}>
+                        <div className="text-center mb-3">
+                          <p className={`font-black text-sm ${day === todayName ? 'text-indigo-600' : 'text-slate-600'}`}>{day}</p>
+                          {day === todayName && <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-widest">วันนี้</span>}
+                        </div>
+                        <div className="space-y-2 min-h-[80px]">
+                          {calendarEvents.filter(e => e.day === day).sort((a, b) => a.startTime.localeCompare(b.startTime)).length === 0 && !showAvailableSlots && (
+                            <p className="text-center text-[11px] text-slate-300 font-bold py-6">ไม่มีคาบเรียน</p>
+                          )}
+                          {calendarEvents.filter(e => e.day === day).sort((a, b) => a.startTime.localeCompare(b.startTime)).map(e => (
+                            <div
+                              key={e.id}
+                              onClick={() => { const st = students.find(s => s.id === e.studentId); if (st) setViewingStudent(st); }}
+                              className={`p-2.5 rounded-[0.8rem] text-white text-[11px] shadow-sm cursor-pointer hover:opacity-90 transition-opacity ${e.teachingType === 'ออนไลน์' ? 'bg-gradient-to-br from-blue-500 to-indigo-500' : 'bg-gradient-to-br from-emerald-500 to-teal-500'}`}
+                            >
+                              <p className="font-black leading-tight mb-0.5 truncate">{e.studentName}</p>
+                              <p className="opacity-90 font-bold">{e.startTime}-{e.endTime}</p>
                             </div>
-                            <div className="space-y-2 min-h-[80px]">
-                              {calendarEvents.filter(e => e.day === day).sort((a, b) => a.startTime.localeCompare(b.startTime)).length === 0 && !showAvailableSlots && (
-                                <p className="text-center text-[11px] text-slate-300 font-bold py-6">ไม่มีคาบเรียน</p>
-                              )}
-                              {calendarEvents.filter(e => e.day === day).sort((a, b) => a.startTime.localeCompare(b.startTime)).map(e => (
-                                <div
-                                  key={e.id}
-                                  onClick={() => { const st = students.find(s => s.id === e.studentId); if (st) setViewingStudent(st); }}
-                                  className={`p-2.5 rounded-[0.8rem] text-white text-[11px] shadow-sm cursor-pointer hover:opacity-90 transition-opacity ${e.teachingType === 'ออนไลน์' ? 'bg-gradient-to-br from-blue-500 to-indigo-500' : 'bg-gradient-to-br from-emerald-500 to-teal-500'}`}
-                                >
-                                  <p className="font-black leading-tight mb-0.5 truncate">{e.studentName}</p>
-                                  <p className="opacity-90 font-bold">{e.startTime}-{e.endTime}</p>
-                                </div>
-                              ))}
-                              {showAvailableSlots && (availableSlots[day] || []).map((slot, i) => (
-                                <div key={`free-${i}`} className="p-2 rounded-[0.8rem] text-[10px] font-bold border border-dashed border-emerald-300 text-emerald-600 bg-emerald-50/50 text-center">
-                                  ว่าง {slot}
-                                </div>
-                              ))}
+                          ))}
+                          {showAvailableSlots && (availableSlots[day] || []).map((slot, i) => (
+                            <div key={`free-${i}`} className="p-2 rounded-[0.8rem] text-[10px] font-bold border border-dashed border-emerald-300 text-emerald-600 bg-emerald-50/50 text-center">
+                              ว่าง {slot}
                             </div>
-                          </div>
-                        ))}
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                    <button
-                      onClick={() => handleScroll(calendarScrollRef, 'right', 200)}
-                      className="hidden md:flex absolute -right-3 top-1/2 -translate-y-1/2 z-20 bg-white p-2 shadow-lg rounded-full text-slate-400 hover:text-indigo-600 border border-slate-100"
-                    >
-                      <Icon name="ChevronRight" size={18} />
-                    </button>
+                    ))}
                   </div>
                 </div>
               </div>
