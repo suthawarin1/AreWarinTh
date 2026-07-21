@@ -37,14 +37,27 @@
 
     /* Bento card depth system — one consistent recipe reused across every tab */
     .bento-card {
-      background: rgba(255,255,255,0.8);
+      background: rgba(255,255,255,0.82);
       backdrop-filter: blur(24px);
       -webkit-backdrop-filter: blur(24px);
       border: 1px solid rgba(255,255,255,0.9);
-      border-radius: 2rem;
-      box-shadow: 0 1px 2px rgba(15,23,42,0.04), 0 20px 40px -16px rgba(15,23,42,0.10);
+      border-radius: 1.5rem;
+      box-shadow: 0 1px 2px rgba(49,25,120,0.05), 0 24px 48px -20px rgba(49,25,120,0.16);
+      position: relative;
     }
-    .bento-card-sm { border-radius: 1.5rem; }
+    .bento-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      padding: 1px;
+      background: linear-gradient(135deg, rgba(99,102,241,0.18), rgba(255,255,255,0) 35%);
+      -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      pointer-events: none;
+    }
+    .bento-card-sm { border-radius: 1.25rem; }
     .stat-tile { transition: transform .25s ease, box-shadow .25s ease; }
     .stat-tile:hover { transform: translateY(-3px); }
 
@@ -418,7 +431,7 @@
       const isOngoing = timeLeft.status === 'ongoing';
       const bgGradient = isOngoing
         ? "bg-gradient-to-r from-orange-500 to-rose-600 shadow-orange-500/30"
-        : "bg-gradient-to-r from-indigo-500 to-violet-600 shadow-indigo-500/30";
+        : "bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600 shadow-indigo-500/30";
 
       const title = isOngoing ? `สถาบันปิดทำการ: ${holidayConfig.reason}` : `เตรียมหยุด: ${holidayConfig.reason}`;
       const subtitle = isOngoing ? "นับถอยหลังเปิดคลาสเรียน" : "นับถอยหลังเริ่มวันหยุด";
@@ -432,7 +445,7 @@
       );
 
       return (
-        <div className={`col-span-1 md:col-span-12 rounded-[2rem] p-6 lg:p-8 text-white shadow-xl flex flex-col md:flex-row items-center justify-between relative overflow-hidden ${bgGradient} transition-all duration-500`}>
+        <div className={`col-span-1 md:col-span-12 rounded-[1.5rem] p-6 lg:p-8 text-white shadow-xl flex flex-col md:flex-row items-center justify-between relative overflow-hidden ${bgGradient} transition-all duration-500`}>
           <div className="absolute right-0 top-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/4 translate-x-1/4"></div>
 
           <div className="relative z-10 flex-1 mb-6 md:mb-0 text-center md:text-left">
@@ -601,13 +614,41 @@
       return result;
     };
 
+    // --- Signature decorative motif: a molecular lattice, grounding the design in "ชีวะ" (biology) ---
+    function MoleculeMotif({ className = '', opacity = 0.08, gradId = 'moleculeGrad' }) {
+      const nodes = {
+        A: [80, 120], B: [160, 80], C: [240, 120], D: [240, 200], E: [160, 240], F: [80, 200],
+        G: [320, 80], H: [320, 160], I: [160, 320], J: [80, 280]
+      };
+      const bonds = [
+        ['A', 'B'], ['B', 'C'], ['C', 'D'], ['D', 'E'], ['E', 'F'], ['F', 'A'],
+        ['C', 'G'], ['G', 'H'], ['H', 'D'], ['E', 'I'], ['I', 'J'], ['J', 'F']
+      ];
+      return (
+        <svg viewBox="0 0 400 400" className={className} style={{ opacity }} preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+          <defs>
+            <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#4f46e5" />
+              <stop offset="100%" stopColor="#a21caf" />
+            </linearGradient>
+          </defs>
+          {bonds.map(([a, b], i) => (
+            <line key={i} x1={nodes[a][0]} y1={nodes[a][1]} x2={nodes[b][0]} y2={nodes[b][1]} stroke={`url(#${gradId})`} strokeWidth="1.5" />
+          ))}
+          {Object.entries(nodes).map(([k, xy]) => (
+            <circle key={k} cx={xy[0]} cy={xy[1]} r="4.5" fill={`url(#${gradId})`} />
+          ))}
+        </svg>
+      );
+    }
+
     // ================================================================
     // หน้าจอแจ้งเตือนเมื่อยังไม่ได้ตั้งค่า Supabase
     // ================================================================
     function SetupNotice() {
       return (
         <div className="min-h-screen flex items-center justify-center bg-[#f4f7fb] p-6">
-          <div className="max-w-lg w-full bg-white rounded-[2rem] shadow-xl p-8 border border-slate-100 text-center">
+          <div className="max-w-lg w-full bg-white rounded-[1.5rem] shadow-xl p-8 border border-slate-100 text-center">
             <div className="w-16 h-16 mx-auto rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mb-5">
               <Icon name="AlertTriangle" size={28} />
             </div>
@@ -630,7 +671,7 @@
     function SplashScreen({ label }) {
       return (
         <div className="min-h-screen bg-[#f4f7fb] flex flex-col items-center justify-center font-sans">
-          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/30 animate-pulse mb-4">
+          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-indigo-600 via-violet-600 to-fuchsia-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/30 animate-pulse mb-4">
             <Icon name="GraduationCap" size={32} />
           </div>
           <h2 className="text-xl font-bold text-indigo-900 tracking-tight animate-pulse">{label || 'กำลังโหลดฐานข้อมูล...'}</h2>
@@ -673,11 +714,13 @@
           <div className="fixed top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
             <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-indigo-300/20 rounded-full blur-[120px]"></div>
             <div className="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] bg-blue-300/20 rounded-full blur-[120px]"></div>
+            <MoleculeMotif className="absolute -right-16 -top-16 w-[420px] h-[420px] rotate-12" opacity={0.10} gradId="loginMolecule1" />
+            <MoleculeMotif className="absolute -left-24 bottom-0 w-[320px] h-[320px] -rotate-12" opacity={0.06} gradId="loginMolecule2" />
           </div>
 
-          <div className="relative z-10 w-full max-w-md bg-white/90 backdrop-blur-2xl rounded-[2rem] shadow-2xl shadow-slate-200/50 border border-white p-8 sm:p-10 animate-in fade-in zoom-in-95 duration-300">
+          <div className="relative z-10 w-full max-w-md bg-white/90 backdrop-blur-2xl rounded-[1.5rem] shadow-2xl shadow-indigo-900/[0.06] border border-white p-8 sm:p-10 animate-in fade-in zoom-in-95 duration-300">
             <div className="flex flex-col items-center text-center mb-8">
-              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/30 mb-4">
+              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-indigo-600 via-violet-600 to-fuchsia-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/30 mb-4">
                 <Icon name="GraduationCap" size={30} strokeWidth={2.5} />
               </div>
               <h1 className="font-display text-2xl font-black bg-clip-text text-transparent bg-gradient-to-r from-indigo-700 via-slate-800 to-violet-700">ชีวะกับพี่อาร์</h1>
@@ -858,13 +901,13 @@
         if (this.state.hasError) {
           return (
             <div className="min-h-screen flex items-center justify-center bg-[#f4f7fb] p-6">
-              <div className="max-w-md w-full bg-white rounded-[2rem] shadow-xl p-8 border border-slate-100 text-center">
+              <div className="max-w-md w-full bg-white rounded-[1.5rem] shadow-xl p-8 border border-slate-100 text-center">
                 <div className="w-16 h-16 mx-auto rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mb-4">
                   <Icon name="AlertOctagon" size={28} />
                 </div>
                 <h1 className="text-xl font-black text-slate-800 mb-2">เกิดข้อผิดพลาดบางอย่าง</h1>
                 <p className="text-sm text-slate-500 mb-6">กรุณาลองโหลดหน้าใหม่อีกครั้ง หากยังพบปัญหาเดิมซ้ำๆ กรุณาตรวจสอบการตั้งค่า Supabase หรือการเชื่อมต่ออินเทอร์เน็ต</p>
-                <button onClick={() => window.location.reload()} className="px-6 py-3 bg-indigo-600 text-white rounded-full font-bold shadow-md shadow-indigo-600/20 hover:bg-indigo-700 transition-all">
+                <button onClick={() => window.location.reload()} className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-full font-bold shadow-md shadow-indigo-600/25 hover:from-indigo-700 hover:to-violet-700 transition-all">
                   โหลดหน้าใหม่
                 </button>
               </div>
@@ -2303,7 +2346,7 @@
           onClick={() => setActiveTab(id)}
           className={`flex items-center gap-2 px-3.5 lg:px-6 py-3 rounded-full transition-all duration-300 font-bold text-sm whitespace-nowrap shrink-0 ${
             activeTab === id
-              ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
+              ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-lg shadow-indigo-600/30'
               : 'text-slate-500 hover:bg-slate-100 hover:text-indigo-600'
           }`}
         >
@@ -2323,11 +2366,12 @@
              <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-indigo-300/20 rounded-full blur-[120px]"></div>
              <div className="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] bg-blue-300/20 rounded-full blur-[120px]"></div>
              <div className="absolute top-[20%] right-[10%] w-[30%] h-[30%] bg-purple-300/10 rounded-full blur-[100px]"></div>
+             <MoleculeMotif className="absolute top-8 right-8 w-[380px] h-[380px] rotate-6 hidden lg:block" opacity={0.05} gradId="appMolecule" />
           </div>
 
           <header className="max-w-7xl w-full mx-auto mb-6 sm:mb-10 flex flex-col md:flex-row md:items-center justify-between gap-4 sm:gap-6 relative z-10 no-print">
-            <div className="flex items-center gap-4 bg-white/70 backdrop-blur-xl p-2.5 pr-6 sm:pr-8 rounded-full border border-white shadow-sm shadow-slate-200/50 shrink-0">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white shadow-md shadow-indigo-500/20">
+            <div className="flex items-center gap-4 bg-white/70 backdrop-blur-xl p-2.5 pr-6 sm:pr-8 rounded-full border border-white shadow-sm shadow-indigo-900/[0.06] shrink-0">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-indigo-600 via-violet-600 to-fuchsia-600 flex items-center justify-center text-white shadow-md shadow-indigo-500/20">
                 <Icon name="GraduationCap" size={20} strokeWidth={2.5} />
               </div>
               <div>
@@ -2347,7 +2391,7 @@
                   <Icon name="ChevronLeft" size={18} />
                 </button>
 
-                <nav ref={navRef} className="flex items-center gap-1.5 bg-white/70 backdrop-blur-xl p-1.5 rounded-full shadow-sm shadow-slate-200/50 border border-white overflow-x-auto custom-scrollbar w-full min-w-0 scroll-smooth">
+                <nav ref={navRef} className="flex items-center gap-1.5 bg-white/70 backdrop-blur-xl p-1.5 rounded-full shadow-sm shadow-indigo-900/[0.06] border border-white overflow-x-auto custom-scrollbar w-full min-w-0 scroll-smooth">
                   <NavItem id="dashboard" iconName="LayoutGrid" label="ภาพรวม" />
                   <NavItem id="tasks" iconName="CheckSquare" label="สิ่งที่ต้องทำ" />
                   <NavItem id="calendar" iconName="CalendarDays" label="ตารางสอน" />
@@ -2368,7 +2412,7 @@
                 </button>
               </div>
 
-              <div className="flex items-center justify-between sm:justify-end gap-1 bg-white/70 backdrop-blur-xl px-2 py-2 rounded-full border border-white shadow-sm shadow-slate-200/50 shrink-0">
+              <div className="flex items-center justify-between sm:justify-end gap-1 bg-white/70 backdrop-blur-xl px-2 py-2 rounded-full border border-white shadow-sm shadow-indigo-900/[0.06] shrink-0">
                 <button onClick={() => setCommandPaletteOpen(true)} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-colors" title="ค้นหาทุกอย่าง (Ctrl/Cmd+K)">
                   <Icon name="Search" size={16} />
                 </button>
@@ -2436,7 +2480,7 @@
               <div className="grid grid-cols-1 md:grid-cols-12 gap-6 lg:gap-8 auto-rows-[minmax(160px,auto)]">
 
                 <div className="col-span-1 md:col-span-12 relative z-30 mb-2">
-                  <div className="bg-white/80 backdrop-blur-2xl p-2 pl-5 rounded-[2rem] border border-white shadow-xl shadow-slate-200/30 flex items-center gap-3 transition-all hover:shadow-indigo-500/10 hover:border-indigo-100">
+                  <div className="bg-white/80 backdrop-blur-2xl p-2 pl-5 rounded-[1.5rem] border border-white shadow-2xl shadow-indigo-950/[0.07] flex items-center gap-3 transition-all hover:shadow-indigo-500/10 hover:border-indigo-100">
                     <Icon name="Search" size={22} className="text-indigo-400 shrink-0" strokeWidth={2.5} />
                     <input
                       type="text"
@@ -2493,7 +2537,7 @@
 
                 <HolidayBannerWithCountdown holidayConfig={holidayConfig} />
 
-                <div className="col-span-1 md:col-span-6 lg:col-span-3 bg-white/80 backdrop-blur-2xl p-6 lg:p-8 rounded-[2rem] border border-white shadow-xl shadow-slate-200/30 flex flex-col justify-between hover:-translate-y-1 transition-transform duration-300 relative overflow-hidden group">
+                <div className="col-span-1 md:col-span-6 lg:col-span-3 bg-white/80 backdrop-blur-2xl p-6 lg:p-8 rounded-[1.5rem] border border-white shadow-2xl shadow-indigo-950/[0.07] flex flex-col justify-between hover:-translate-y-1 transition-transform duration-300 relative overflow-hidden group">
                   <div className="absolute -right-8 -top-8 w-32 h-32 bg-blue-500/10 rounded-full blur-2xl group-hover:bg-blue-500/20 transition-colors"></div>
                   <div className="flex justify-between items-start relative z-10">
                     <div className="p-3 bg-blue-500 text-white rounded-[1rem] shadow-md shadow-blue-500/20">
@@ -2507,7 +2551,7 @@
                   </div>
                 </div>
 
-                <div className="col-span-1 md:col-span-6 lg:col-span-3 bg-white/80 backdrop-blur-2xl p-6 lg:p-8 rounded-[2rem] border border-white shadow-xl shadow-slate-200/30 flex flex-col justify-between hover:-translate-y-1 transition-transform duration-300 relative overflow-hidden group">
+                <div className="col-span-1 md:col-span-6 lg:col-span-3 bg-white/80 backdrop-blur-2xl p-6 lg:p-8 rounded-[1.5rem] border border-white shadow-2xl shadow-indigo-950/[0.07] flex flex-col justify-between hover:-translate-y-1 transition-transform duration-300 relative overflow-hidden group">
                   <div className="absolute -right-8 -top-8 w-32 h-32 bg-emerald-500/10 rounded-full blur-2xl group-hover:bg-emerald-500/20 transition-colors"></div>
                   <div className="flex justify-between items-start relative z-10">
                     <div className="p-3 bg-emerald-500 text-white rounded-[1rem] shadow-md shadow-emerald-500/20">
@@ -2530,7 +2574,7 @@
                   </div>
                 </div>
 
-                <div className="col-span-1 md:col-span-12 lg:col-span-6 bg-white/80 backdrop-blur-2xl p-6 lg:p-8 rounded-[2rem] border border-white shadow-xl shadow-slate-200/30 flex items-center justify-between hover:-translate-y-1 transition-transform duration-300 relative overflow-hidden group">
+                <div className="col-span-1 md:col-span-12 lg:col-span-6 bg-white/80 backdrop-blur-2xl p-6 lg:p-8 rounded-[1.5rem] border border-white shadow-2xl shadow-indigo-950/[0.07] flex items-center justify-between hover:-translate-y-1 transition-transform duration-300 relative overflow-hidden group">
                   <div className="absolute -right-8 -top-8 w-40 h-40 bg-fuchsia-500/10 rounded-full blur-2xl group-hover:bg-fuchsia-500/20 transition-colors"></div>
 
                   <DateTimeDisplay />
@@ -2540,7 +2584,7 @@
                   </div>
                 </div>
 
-                <div className="col-span-1 md:col-span-12 lg:col-span-6 lg:row-span-2 bg-gradient-to-br from-indigo-600 to-violet-700 p-5 sm:p-6 lg:p-8 rounded-[2rem] shadow-xl shadow-indigo-600/20 text-white relative overflow-hidden flex flex-col min-h-[400px]">
+                <div className="col-span-1 md:col-span-12 lg:col-span-6 lg:row-span-2 bg-gradient-to-br from-indigo-700 via-violet-700 to-fuchsia-700 p-5 sm:p-6 lg:p-8 rounded-[1.5rem] shadow-xl shadow-indigo-600/20 text-white relative overflow-hidden flex flex-col min-h-[400px]">
                    <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3"></div>
                    <div className="absolute bottom-0 left-0 w-48 h-48 bg-black/10 rounded-full blur-2xl translate-y-1/2 -translate-x-1/4"></div>
 
@@ -2680,7 +2724,7 @@
                    </div>
                 </div>
 
-                <div className="col-span-1 md:col-span-12 lg:col-span-6 bg-white/80 backdrop-blur-2xl p-6 lg:p-8 rounded-[2rem] border border-white shadow-xl shadow-slate-200/30 flex flex-col min-h-[220px]">
+                <div className="col-span-1 md:col-span-12 lg:col-span-6 bg-white/80 backdrop-blur-2xl p-6 lg:p-8 rounded-[1.5rem] border border-white shadow-2xl shadow-indigo-950/[0.07] flex flex-col min-h-[220px]">
                   <div className="flex items-center justify-between mb-5">
                     <div className="flex items-center gap-3">
                       <div className="p-2 bg-rose-100 text-rose-500 rounded-[0.8rem]">
@@ -2746,7 +2790,7 @@
                   </div>
                 </div>
 
-                <div className="col-span-1 md:col-span-12 lg:col-span-6 bg-white/80 backdrop-blur-2xl p-6 lg:p-8 rounded-[2rem] border border-white shadow-xl shadow-slate-200/30 flex flex-col min-h-[250px]">
+                <div className="col-span-1 md:col-span-12 lg:col-span-6 bg-white/80 backdrop-blur-2xl p-6 lg:p-8 rounded-[1.5rem] border border-white shadow-2xl shadow-indigo-950/[0.07] flex flex-col min-h-[250px]">
                   <h3 className="font-extrabold text-lg text-slate-800 mb-2 flex items-center gap-2">
                     <Icon name="BarChart" size={20} className="text-indigo-500" /> สถิติรายได้
                   </h3>
@@ -2840,7 +2884,7 @@
 
             {activeTab === 'tasks' && (
               <div className="max-w-4xl mx-auto space-y-6 lg:space-y-8">
-                <div className="bg-white/80 backdrop-blur-2xl rounded-[2rem] shadow-xl shadow-slate-200/30 border border-white p-6 md:p-8">
+                <div className="bg-white/80 backdrop-blur-2xl rounded-[1.5rem] shadow-2xl shadow-indigo-950/[0.07] border border-white p-6 md:p-8">
                   <div className="flex items-center gap-3 mb-6">
                     <div className="w-12 h-12 rounded-[1rem] bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-500/30">
                       <Icon name="CheckSquare" size={24} strokeWidth={2.5} />
@@ -2859,7 +2903,7 @@
                       placeholder="พิมพ์งานที่ต้องทำ..."
                       className="flex-1 p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none text-base font-medium transition-all"
                     />
-                    <button type="submit" className="px-6 py-4 bg-indigo-600 text-white rounded-xl font-bold shadow-md shadow-indigo-600/20 hover:bg-indigo-700 transition-all flex items-center gap-2 shrink-0">
+                    <button type="submit" className="px-6 py-4 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-xl font-bold shadow-md shadow-indigo-600/25 hover:from-indigo-700 hover:to-violet-700 transition-all flex items-center gap-2 shrink-0">
                       <Icon name="Plus" size={20} /> เพิ่มงาน
                     </button>
                   </form>
@@ -2891,7 +2935,7 @@
 
             {activeTab === 'calendar' && (
               <div className="space-y-6 lg:space-y-8">
-                <div className="bg-white/80 backdrop-blur-2xl rounded-[2rem] shadow-xl shadow-slate-200/30 border border-white p-5 md:p-8">
+                <div className="bg-white/80 backdrop-blur-2xl rounded-[1.5rem] shadow-2xl shadow-indigo-950/[0.07] border border-white p-5 md:p-8">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                     <div className="flex items-center gap-3">
                       <div className="w-12 h-12 rounded-[1rem] bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-500/30">
@@ -2958,7 +3002,7 @@
                   </div>
                   <button
                     onClick={() => { setEditingCourse(null); setIsCourseModalOpen(true); }}
-                    className="px-5 py-3 bg-indigo-600 text-white rounded-full font-bold shadow-md shadow-indigo-600/20 hover:bg-indigo-700 transition-all flex items-center gap-2 shrink-0 justify-center"
+                    className="px-5 py-3 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-full font-bold shadow-md shadow-indigo-600/25 hover:from-indigo-700 hover:to-violet-700 transition-all flex items-center gap-2 shrink-0 justify-center"
                   >
                     <Icon name="Plus" size={18} /> เพิ่มคอร์สใหม่
                   </button>
@@ -2982,7 +3026,7 @@
                 )}
 
                 {courses.length === 0 ? (
-                  <div className="text-center py-16 bg-white/60 border border-dashed border-slate-200 rounded-[2rem] text-slate-400">
+                  <div className="text-center py-16 bg-white/60 border border-dashed border-slate-200 rounded-[1.5rem] text-slate-400">
                     <Icon name="BookCopy" size={40} className="mx-auto mb-3 opacity-40" />
                     <p className="font-bold">ยังไม่มีคอร์สเรียนในระบบ</p>
                     <p className="text-sm">กด "เพิ่มคอร์สใหม่" เพื่อสร้างแม่แบบคอร์สแรกของคุณ</p>
@@ -2990,7 +3034,7 @@
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                     {courses.map(c => (
-                      <div key={c.id} className="bg-white/80 backdrop-blur-2xl rounded-[1.75rem] border border-white shadow-xl shadow-slate-200/30 p-6 flex flex-col group hover:-translate-y-1 transition-transform duration-300">
+                      <div key={c.id} className="bg-white/80 backdrop-blur-2xl rounded-[1.5rem] border border-white shadow-2xl shadow-indigo-950/[0.07] p-6 flex flex-col group hover:-translate-y-1 transition-transform duration-300">
                         <div className="flex items-start justify-between mb-3">
                           <span className="px-2.5 py-1 bg-indigo-50 text-indigo-600 rounded-md text-[11px] font-bold border border-indigo-100">{c.type || 'ทั่วไป'}</span>
                           <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -3031,7 +3075,7 @@
                   </div>
                   <button
                     onClick={openAddMaterial}
-                    className="px-5 py-3 bg-indigo-600 text-white rounded-full font-bold shadow-md shadow-indigo-600/20 hover:bg-indigo-700 transition-all flex items-center gap-2 shrink-0 justify-center"
+                    className="px-5 py-3 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-full font-bold shadow-md shadow-indigo-600/25 hover:from-indigo-700 hover:to-violet-700 transition-all flex items-center gap-2 shrink-0 justify-center"
                   >
                     <Icon name="Plus" size={18} /> เพิ่มเอกสาร
                   </button>
@@ -3054,7 +3098,7 @@
                 </div>
 
                 {materials.length === 0 ? (
-                  <div className="text-center py-16 bg-white/60 border border-dashed border-slate-200 rounded-[2rem] text-slate-400">
+                  <div className="text-center py-16 bg-white/60 border border-dashed border-slate-200 rounded-[1.5rem] text-slate-400">
                     <Icon name="FolderOpen" size={40} className="mx-auto mb-3 opacity-40" />
                     <p className="font-bold">ยังไม่มีเอกสารในระบบ</p>
                     <p className="text-sm">กด "เพิ่มเอกสาร" เพื่อบันทึกลิงก์ชีทเรียนแรกของคุณ</p>
@@ -3062,7 +3106,7 @@
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                     {materials.map(m => (
-                      <div key={m.id} className="bg-white/80 backdrop-blur-2xl rounded-[1.75rem] border border-white shadow-xl shadow-slate-200/30 p-6 flex flex-col group hover:-translate-y-1 transition-transform duration-300">
+                      <div key={m.id} className="bg-white/80 backdrop-blur-2xl rounded-[1.5rem] border border-white shadow-2xl shadow-indigo-950/[0.07] p-6 flex flex-col group hover:-translate-y-1 transition-transform duration-300">
                         <div className="flex items-start justify-between mb-3">
                           <div className="w-11 h-11 rounded-[0.9rem] bg-amber-100 text-amber-600 flex items-center justify-center shadow-sm shrink-0">
                             <Icon name="FileText" size={20} />
@@ -3113,7 +3157,7 @@
                     </label>
                     <button
                       onClick={openAddStudent}
-                      className="px-5 py-3 bg-indigo-600 text-white rounded-full font-bold shadow-md shadow-indigo-600/20 hover:bg-indigo-700 transition-all flex items-center gap-2 justify-center"
+                      className="px-5 py-3 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-full font-bold shadow-md shadow-indigo-600/25 hover:from-indigo-700 hover:to-violet-700 transition-all flex items-center gap-2 justify-center"
                     >
                       <Icon name="Plus" size={18} /> เพิ่มนักเรียนใหม่
                     </button>
@@ -3139,7 +3183,7 @@
                   </div>
                 </div>
 
-                <div className="bg-white/80 backdrop-blur-2xl rounded-[2rem] shadow-xl shadow-slate-200/30 border border-white p-4 sm:p-6 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                <div className="bg-white/80 backdrop-blur-2xl rounded-[1.5rem] shadow-2xl shadow-indigo-950/[0.07] border border-white p-4 sm:p-6 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                   <div className="flex-1 flex items-center gap-3 bg-slate-50 rounded-full px-4 py-2.5 border border-slate-100">
                     <Icon name="Search" size={18} className="text-slate-400 shrink-0" />
                     <input
@@ -3156,7 +3200,7 @@
                   </label>
                 </div>
 
-                <div className="bg-white/80 backdrop-blur-2xl rounded-[2rem] shadow-xl shadow-slate-200/30 border border-white overflow-hidden">
+                <div className="bg-white/80 backdrop-blur-2xl rounded-[1.5rem] shadow-2xl shadow-indigo-950/[0.07] border border-white overflow-hidden">
                   <div ref={studentTableScrollRef} className="overflow-x-auto custom-scrollbar">
                     <table className="w-full min-w-[720px] text-sm">
                       <thead>
@@ -3188,7 +3232,7 @@
 
             {activeTab === 'teaching' && (
               <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 lg:gap-8 items-start">
-                <div className="lg:col-span-2 bg-white/80 backdrop-blur-2xl rounded-[2rem] shadow-xl shadow-slate-200/30 border border-white p-6 md:p-8 lg:sticky lg:top-8">
+                <div className="lg:col-span-2 bg-white/80 backdrop-blur-2xl rounded-[1.5rem] shadow-2xl shadow-indigo-950/[0.07] border border-white p-6 md:p-8 lg:sticky lg:top-8">
                   <div className="flex items-center gap-3 mb-6">
                     <div className="w-12 h-12 rounded-[1rem] bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-500/30">
                       <Icon name="BookOpen" size={22} strokeWidth={2.5} />
@@ -3260,14 +3304,14 @@
                       <textarea name="notes" rows="3" placeholder="พฤติกรรม, การบ้าน, สิ่งที่ต้องทบทวนเพิ่ม..." className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none text-sm font-medium resize-none"></textarea>
                     </div>
 
-                    <button type="submit" disabled={savingLog} className="w-full py-3.5 bg-indigo-600 text-white rounded-xl font-bold shadow-md shadow-indigo-600/20 hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 disabled:opacity-60">
+                    <button type="submit" disabled={savingLog} className="w-full py-3.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-xl font-bold shadow-md shadow-indigo-600/25 hover:from-indigo-700 hover:to-violet-700 transition-all flex items-center justify-center gap-2 disabled:opacity-60">
                       {savingLog ? <Icon name="Loader2" size={16} className="animate-spin" /> : <Icon name="Save" size={16} />}
                       {savingLog ? 'กำลังบันทึก...' : 'บันทึกการสอน'}
                     </button>
                   </form>
                 </div>
 
-                <div className="lg:col-span-3 bg-white/80 backdrop-blur-2xl rounded-[2rem] shadow-xl shadow-slate-200/30 border border-white p-6 md:p-8">
+                <div className="lg:col-span-3 bg-white/80 backdrop-blur-2xl rounded-[1.5rem] shadow-2xl shadow-indigo-950/[0.07] border border-white p-6 md:p-8">
                   <div className="flex items-center justify-between mb-5 gap-3 flex-wrap">
                     <h3 className="font-black text-slate-800 text-lg">ประวัติการสอนล่าสุด</h3>
                     <select
@@ -3319,7 +3363,7 @@
 
             {activeTab === 'scores' && (
               <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 lg:gap-8 items-start">
-                <div className="lg:col-span-2 bg-white/80 backdrop-blur-2xl rounded-[2rem] shadow-xl shadow-slate-200/30 border border-white p-6 md:p-8 lg:sticky lg:top-8">
+                <div className="lg:col-span-2 bg-white/80 backdrop-blur-2xl rounded-[1.5rem] shadow-2xl shadow-indigo-950/[0.07] border border-white p-6 md:p-8 lg:sticky lg:top-8">
                   <div className="flex items-center gap-3 mb-6">
                     <div className="w-12 h-12 rounded-[1rem] bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-500/30">
                       <Icon name="Award" size={22} strokeWidth={2.5} />
@@ -3366,7 +3410,7 @@
                       <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">วันที่สอบ</label>
                       <input type="date" name="date" required defaultValue={new Date().toISOString().split('T')[0]} className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none text-sm font-bold" />
                     </div>
-                    <button type="submit" disabled={savingScore} className="w-full py-3.5 bg-indigo-600 text-white rounded-xl font-bold shadow-md shadow-indigo-600/20 hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 disabled:opacity-60">
+                    <button type="submit" disabled={savingScore} className="w-full py-3.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-xl font-bold shadow-md shadow-indigo-600/25 hover:from-indigo-700 hover:to-violet-700 transition-all flex items-center justify-center gap-2 disabled:opacity-60">
                       {savingScore ? <Icon name="Loader2" size={16} className="animate-spin" /> : <Icon name="Save" size={16} />}
                       {savingScore ? 'กำลังบันทึก...' : 'บันทึกคะแนน'}
                     </button>
@@ -3374,7 +3418,7 @@
                 </div>
 
                 <div className="lg:col-span-3 space-y-6">
-                  <div className="bg-white/80 backdrop-blur-2xl rounded-[2rem] shadow-xl shadow-slate-200/30 border border-white p-6 md:p-8">
+                  <div className="bg-white/80 backdrop-blur-2xl rounded-[1.5rem] shadow-2xl shadow-indigo-950/[0.07] border border-white p-6 md:p-8">
                     <div className="flex items-center justify-between mb-5 gap-3 flex-wrap">
                       <h3 className="font-black text-slate-800 text-lg">ประวัติคะแนนสอบ</h3>
                       <select
@@ -3461,7 +3505,7 @@
                     </label>
                     <button
                       onClick={openAddFinance}
-                      className="px-5 py-3 bg-indigo-600 text-white rounded-full font-bold shadow-md shadow-indigo-600/20 hover:bg-indigo-700 transition-all flex items-center gap-2 justify-center"
+                      className="px-5 py-3 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-full font-bold shadow-md shadow-indigo-600/25 hover:from-indigo-700 hover:to-violet-700 transition-all flex items-center gap-2 justify-center"
                     >
                       <Icon name="Plus" size={18} /> เพิ่มรายการ
                     </button>
@@ -3491,13 +3535,13 @@
 
                 <div className="space-y-5">
                   {groupedFinances.length === 0 ? (
-                    <div className="text-center py-16 bg-white/60 border border-dashed border-slate-200 rounded-[2rem] text-slate-400">
+                    <div className="text-center py-16 bg-white/60 border border-dashed border-slate-200 rounded-[1.5rem] text-slate-400">
                       <Icon name="DollarSign" size={40} className="mx-auto mb-3 opacity-40" />
                       <p className="font-bold">ยังไม่มีรายการการเงิน</p>
                     </div>
                   ) : (
                     groupedFinances.map(group => (
-                      <div key={group.id} className="bg-white/80 backdrop-blur-2xl rounded-[2rem] shadow-xl shadow-slate-200/30 border border-white overflow-hidden">
+                      <div key={group.id} className="bg-white/80 backdrop-blur-2xl rounded-[1.5rem] shadow-2xl shadow-indigo-950/[0.07] border border-white overflow-hidden">
                         <div className="p-5 sm:p-6 flex items-center justify-between border-b border-slate-100 bg-slate-50/60">
                           <h3 className="font-black text-slate-800">{group.label}</h3>
                           <div className="flex items-center gap-3 text-xs font-bold">
@@ -3546,7 +3590,7 @@
               <div className="max-w-4xl mx-auto space-y-6 lg:space-y-8">
 
                 {/* บัญชีผู้ใช้ */}
-                <div className="bg-white/80 backdrop-blur-2xl rounded-[2rem] shadow-xl shadow-slate-200/30 border border-white p-6 md:p-8">
+                <div className="bg-white/80 backdrop-blur-2xl rounded-[1.5rem] shadow-2xl shadow-indigo-950/[0.07] border border-white p-6 md:p-8">
                   <div className="flex items-center gap-3 mb-5">
                     <div className="w-11 h-11 rounded-[0.9rem] bg-slate-800 text-white flex items-center justify-center shadow-md"><Icon name="UserCircle" size={20} /></div>
                     <h2 className="text-xl font-black text-slate-800 tracking-tight">บัญชีผู้ใช้</h2>
@@ -3566,7 +3610,7 @@
                 </div>
 
                 {/* ข้อมูลสำหรับออกเอกสาร */}
-                <div className="bg-white/80 backdrop-blur-2xl rounded-[2rem] shadow-xl shadow-slate-200/30 border border-white p-6 md:p-8">
+                <div className="bg-white/80 backdrop-blur-2xl rounded-[1.5rem] shadow-2xl shadow-indigo-950/[0.07] border border-white p-6 md:p-8">
                   <div className="flex items-center gap-3 mb-2">
                     <div className="w-11 h-11 rounded-[0.9rem] bg-indigo-600 text-white flex items-center justify-center shadow-md shadow-indigo-500/30"><Icon name="FileSignature" size={20} /></div>
                     <h2 className="text-xl font-black text-slate-800 tracking-tight">ข้อมูลสำหรับออกเอกสาร</h2>
@@ -3615,7 +3659,7 @@
                       <input name="driveFolderUrl" defaultValue={settings.driveFolderUrl} placeholder="https://drive.google.com/..." className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none text-sm font-medium" />
                     </div>
 
-                    <button type="submit" disabled={savingBusiness} className="w-full sm:w-auto px-8 py-3.5 bg-indigo-600 text-white rounded-xl font-bold shadow-md shadow-indigo-600/20 hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 disabled:opacity-60">
+                    <button type="submit" disabled={savingBusiness} className="w-full sm:w-auto px-8 py-3.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-xl font-bold shadow-md shadow-indigo-600/25 hover:from-indigo-700 hover:to-violet-700 transition-all flex items-center justify-center gap-2 disabled:opacity-60">
                       {savingBusiness ? <Icon name="Loader2" size={16} className="animate-spin" /> : <Icon name="Save" size={16} />}
                       {savingBusiness ? 'กำลังบันทึก...' : 'บันทึกข้อมูล'}
                     </button>
@@ -3623,7 +3667,7 @@
                 </div>
 
                 {/* โหมดวันหยุดสถาบัน */}
-                <div className="bg-white/80 backdrop-blur-2xl rounded-[2rem] shadow-xl shadow-slate-200/30 border border-white p-6 md:p-8">
+                <div className="bg-white/80 backdrop-blur-2xl rounded-[1.5rem] shadow-2xl shadow-indigo-950/[0.07] border border-white p-6 md:p-8">
                   <div className="flex items-center gap-3 mb-2">
                     <div className="w-11 h-11 rounded-[0.9rem] bg-orange-500 text-white flex items-center justify-center shadow-md shadow-orange-500/30"><Icon name="CalendarOff" size={20} /></div>
                     <h2 className="text-xl font-black text-slate-800 tracking-tight">โหมดวันหยุดสถาบัน</h2>
@@ -3669,7 +3713,7 @@
                 </div>
 
                 {/* จัดการข้อมูล */}
-                <div className="bg-white/80 backdrop-blur-2xl rounded-[2rem] shadow-xl shadow-slate-200/30 border border-white p-6 md:p-8">
+                <div className="bg-white/80 backdrop-blur-2xl rounded-[1.5rem] shadow-2xl shadow-indigo-950/[0.07] border border-white p-6 md:p-8">
                   <div className="flex items-center gap-3 mb-2">
                     <div className="w-11 h-11 rounded-[0.9rem] bg-emerald-600 text-white flex items-center justify-center shadow-md shadow-emerald-500/30"><Icon name="DatabaseBackup" size={20} /></div>
                     <h2 className="text-xl font-black text-slate-800 tracking-tight">จัดการข้อมูล</h2>
@@ -3703,7 +3747,7 @@
                 </div>
 
                 {/* ข้อความตอบกลับด่วน */}
-                <div className="bg-white/80 backdrop-blur-2xl rounded-[2rem] shadow-xl shadow-slate-200/30 border border-white p-6 md:p-8">
+                <div className="bg-white/80 backdrop-blur-2xl rounded-[1.5rem] shadow-2xl shadow-indigo-950/[0.07] border border-white p-6 md:p-8">
                   <div className="flex items-center gap-3 mb-6">
                     <div className="w-11 h-11 rounded-[0.9rem] bg-fuchsia-500 text-white flex items-center justify-center shadow-md shadow-fuchsia-500/30"><Icon name="MessageSquareQuote" size={20} /></div>
                     <h2 className="text-xl font-black text-slate-800 tracking-tight">ข้อความตอบกลับด่วน</h2>
@@ -3722,7 +3766,7 @@
                       placeholder="ข้อความ" required
                       className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none text-sm font-medium sm:col-span-1"
                     />
-                    <button type="submit" className="px-5 py-3.5 bg-indigo-600 text-white rounded-xl font-bold shadow-md shadow-indigo-600/20 hover:bg-indigo-700 transition-all flex items-center justify-center gap-2">
+                    <button type="submit" className="px-5 py-3.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-xl font-bold shadow-md shadow-indigo-600/25 hover:from-indigo-700 hover:to-violet-700 transition-all flex items-center justify-center gap-2">
                       <Icon name="Plus" size={16} /> เพิ่ม
                     </button>
                   </form>
@@ -3794,7 +3838,7 @@
           {/* ============================== MODAL: คอร์สเรียน ============================== */}
           {isCourseModalOpen && (
             <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[90] no-print">
-              <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-lg p-6 md:p-8 animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto custom-scrollbar">
+              <div className="bg-white rounded-[1.5rem] shadow-2xl w-full max-w-lg p-6 md:p-8 animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto custom-scrollbar">
                 <div className="flex items-center justify-between mb-6">
                   <h3 className="text-xl font-black text-slate-800">{editingCourse ? 'แก้ไขคอร์สเรียน' : 'เพิ่มคอร์สเรียนใหม่'}</h3>
                   <button onClick={() => setIsCourseModalOpen(false)} className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-full transition-colors">
@@ -3824,7 +3868,7 @@
                       <input type="number" step="1" name="price" required defaultValue={editingCourse?.price} className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none text-sm font-bold" />
                     </div>
                   </div>
-                  <button type="submit" disabled={savingCourse} className="w-full py-3.5 bg-indigo-600 text-white rounded-xl font-bold shadow-md shadow-indigo-600/20 hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 disabled:opacity-60">
+                  <button type="submit" disabled={savingCourse} className="w-full py-3.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-xl font-bold shadow-md shadow-indigo-600/25 hover:from-indigo-700 hover:to-violet-700 transition-all flex items-center justify-center gap-2 disabled:opacity-60">
                     {savingCourse ? <Icon name="Loader2" size={16} className="animate-spin" /> : <Icon name="Save" size={16} />}
                     {savingCourse ? 'กำลังบันทึก...' : 'บันทึกคอร์สเรียน'}
                   </button>
@@ -3836,7 +3880,7 @@
           {/* ============================== MODAL: รายการการเงิน (เพิ่ม/แก้ไข) ============================== */}
           {isFinanceModalOpen && (
             <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[90] no-print">
-              <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-md p-6 md:p-8 animate-in fade-in zoom-in-95 duration-200">
+              <div className="bg-white rounded-[1.5rem] shadow-2xl w-full max-w-md p-6 md:p-8 animate-in fade-in zoom-in-95 duration-200">
                 <div className="flex items-center justify-between mb-6">
                   <h3 className="text-xl font-black text-slate-800">{editingFinance ? 'แก้ไขรายการ' : 'เพิ่มรายรับ/รายจ่าย'}</h3>
                   <button onClick={() => { setIsFinanceModalOpen(false); setEditingFinance(null); }} className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-full transition-colors">
@@ -3866,7 +3910,7 @@
                       <input type="date" name="date" required defaultValue={editingFinance?.date || new Date().toISOString().split('T')[0]} className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none text-sm font-bold" />
                     </div>
                   </div>
-                  <button type="submit" disabled={savingFinance} className="w-full py-3.5 bg-indigo-600 text-white rounded-xl font-bold shadow-md shadow-indigo-600/20 hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 disabled:opacity-60">
+                  <button type="submit" disabled={savingFinance} className="w-full py-3.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-xl font-bold shadow-md shadow-indigo-600/25 hover:from-indigo-700 hover:to-violet-700 transition-all flex items-center justify-center gap-2 disabled:opacity-60">
                     {savingFinance ? <Icon name="Loader2" size={16} className="animate-spin" /> : <Icon name="Save" size={16} />}
                     {savingFinance ? 'กำลังบันทึก...' : 'บันทึกรายการ'}
                   </button>
@@ -3878,7 +3922,7 @@
           {/* ============================== MODAL: เอกสาร/ชีทเรียน (เพิ่ม/แก้ไข) ============================== */}
           {isMaterialModalOpen && (
             <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[90] no-print">
-              <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-md p-6 md:p-8 animate-in fade-in zoom-in-95 duration-200">
+              <div className="bg-white rounded-[1.5rem] shadow-2xl w-full max-w-md p-6 md:p-8 animate-in fade-in zoom-in-95 duration-200">
                 <div className="flex items-center justify-between mb-6">
                   <h3 className="text-xl font-black text-slate-800">{editingMaterial ? 'แก้ไขเอกสาร' : 'เพิ่มเอกสารใหม่'}</h3>
                   <button onClick={() => { setIsMaterialModalOpen(false); setEditingMaterial(null); }} className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-full transition-colors">
@@ -3898,7 +3942,7 @@
                     <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">ลิงก์เอกสาร (Google Drive)</label>
                     <input name="link" placeholder="https://drive.google.com/..." defaultValue={editingMaterial?.link} className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none text-sm font-medium" />
                   </div>
-                  <button type="submit" disabled={savingMaterial} className="w-full py-3.5 bg-indigo-600 text-white rounded-xl font-bold shadow-md shadow-indigo-600/20 hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 disabled:opacity-60">
+                  <button type="submit" disabled={savingMaterial} className="w-full py-3.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-xl font-bold shadow-md shadow-indigo-600/25 hover:from-indigo-700 hover:to-violet-700 transition-all flex items-center justify-center gap-2 disabled:opacity-60">
                     {savingMaterial ? <Icon name="Loader2" size={16} className="animate-spin" /> : <Icon name="Save" size={16} />}
                     {savingMaterial ? 'กำลังบันทึก...' : 'บันทึกเอกสาร'}
                   </button>
@@ -3910,7 +3954,7 @@
           {/* ============================== MODAL: จบคอร์ส / ต่อคอร์ส ============================== */}
           {renewingStudent && (
             <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[90] no-print">
-              <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-md p-6 md:p-8 animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto custom-scrollbar">
+              <div className="bg-white rounded-[1.5rem] shadow-2xl w-full max-w-md p-6 md:p-8 animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto custom-scrollbar">
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="text-xl font-black text-slate-800">{renewMode ? 'ต่อคอร์สให้ ' + renewingStudent.name : 'จบคอร์ส ' + renewingStudent.name}</h3>
                   <button onClick={() => { setRenewingStudent(null); setRenewMode(false); }} className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-full transition-colors">
@@ -3975,7 +4019,7 @@
                     </div>
                     <div className="flex gap-3">
                       <button type="button" onClick={() => setRenewMode(false)} className="flex-1 py-3.5 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition-colors">ย้อนกลับ</button>
-                      <button type="submit" disabled={savingRenew} className="flex-1 py-3.5 bg-indigo-600 text-white rounded-xl font-bold shadow-md shadow-indigo-600/20 hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 disabled:opacity-60">
+                      <button type="submit" disabled={savingRenew} className="flex-1 py-3.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-xl font-bold shadow-md shadow-indigo-600/25 hover:from-indigo-700 hover:to-violet-700 transition-all flex items-center justify-center gap-2 disabled:opacity-60">
                         {savingRenew ? <Icon name="Loader2" size={16} className="animate-spin" /> : <Icon name="Check" size={16} />}
                         ยืนยันต่อคอร์ส
                       </button>
@@ -3989,7 +4033,7 @@
           {/* ============================== MODAL: เพิ่ม/แก้ไขนักเรียน ============================== */}
           {isStudentModalOpen && (
             <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[90] no-print">
-              <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-2xl p-6 md:p-8 animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto custom-scrollbar">
+              <div className="bg-white rounded-[1.5rem] shadow-2xl w-full max-w-2xl p-6 md:p-8 animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto custom-scrollbar">
                 <div className="flex items-center justify-between mb-6">
                   <h3 className="text-xl font-black text-slate-800">{editingStudent ? 'แก้ไขข้อมูลนักเรียน' : 'เพิ่มนักเรียนใหม่'}</h3>
                   <button onClick={() => setIsStudentModalOpen(false)} className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-full transition-colors">
@@ -4147,7 +4191,7 @@
                     )}
                   </div>
 
-                  <button type="submit" disabled={savingStudent} className="w-full py-3.5 bg-indigo-600 text-white rounded-xl font-bold shadow-md shadow-indigo-600/20 hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 disabled:opacity-60">
+                  <button type="submit" disabled={savingStudent} className="w-full py-3.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-xl font-bold shadow-md shadow-indigo-600/25 hover:from-indigo-700 hover:to-violet-700 transition-all flex items-center justify-center gap-2 disabled:opacity-60">
                     {savingStudent ? <Icon name="Loader2" size={16} className="animate-spin" /> : <Icon name="Save" size={16} />}
                     {savingStudent ? 'กำลังบันทึก...' : (editingStudent ? 'บันทึกการแก้ไข' : 'เพิ่มนักเรียนใหม่')}
                   </button>
@@ -4166,7 +4210,7 @@
 
             return (
               <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[85] no-print">
-                <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-3xl p-6 md:p-8 animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto custom-scrollbar">
+                <div className="bg-white rounded-[1.5rem] shadow-2xl w-full max-w-3xl p-6 md:p-8 animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto custom-scrollbar">
                   <div className="flex items-start justify-between mb-6 gap-3">
                     <div className="flex items-center gap-4 min-w-0">
                       <div className="w-14 h-14 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0 shadow-inner">
@@ -4313,7 +4357,7 @@
           {/* ============================== MODAL: ใบเสร็จรับเงิน ============================== */}
           {receiptStudent && (
             <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[95] print-wrapper">
-              <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-lg animate-in fade-in zoom-in-95 duration-200 max-h-[92vh] flex flex-col print-modal">
+              <div className="bg-white rounded-[1.5rem] shadow-2xl w-full max-w-lg animate-in fade-in zoom-in-95 duration-200 max-h-[92vh] flex flex-col print-modal">
                 <div className="flex items-center justify-between p-5 border-b border-slate-100 no-print shrink-0">
                   <h3 className="text-lg font-black text-slate-800">ใบเสร็จรับเงิน</h3>
                   <div className="flex items-center gap-2">
@@ -4391,7 +4435,7 @@
           {/* ============================== MODAL: ใบแจ้งหนี้ ============================== */}
           {invoiceStudent && (
             <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[95] print-wrapper">
-              <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-lg animate-in fade-in zoom-in-95 duration-200 max-h-[92vh] flex flex-col print-modal">
+              <div className="bg-white rounded-[1.5rem] shadow-2xl w-full max-w-lg animate-in fade-in zoom-in-95 duration-200 max-h-[92vh] flex flex-col print-modal">
                 <div className="flex items-center justify-between p-5 border-b border-slate-100 no-print shrink-0">
                   <h3 className="text-lg font-black text-slate-800">ใบแจ้งหนี้</h3>
                   <div className="flex items-center gap-2">
@@ -4496,7 +4540,7 @@
 
             return (
               <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[95] print-wrapper">
-                <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-2xl animate-in fade-in zoom-in-95 duration-200 max-h-[92vh] flex flex-col print-modal">
+                <div className="bg-white rounded-[1.5rem] shadow-2xl w-full max-w-2xl animate-in fade-in zoom-in-95 duration-200 max-h-[92vh] flex flex-col print-modal">
                   <div className="flex items-center justify-between p-5 border-b border-slate-100 no-print shrink-0">
                     <h3 className="text-lg font-black text-slate-800">รายงานพัฒนาการ</h3>
                     <div className="flex items-center gap-2">
@@ -4582,7 +4626,7 @@
           {/* ============================== MODAL: แชร์ตารางเรียน ============================== */}
           {shareModal && (
             <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[90] no-print">
-              <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-md p-6 md:p-8 animate-in fade-in zoom-in-95 duration-200">
+              <div className="bg-white rounded-[1.5rem] shadow-2xl w-full max-w-md p-6 md:p-8 animate-in fade-in zoom-in-95 duration-200">
                 <div className="flex items-center justify-between mb-6">
                   <h3 className="text-xl font-black text-slate-800">แชร์ตารางเรียน</h3>
                   <button onClick={() => setShareModal(null)} className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-full transition-colors">
@@ -4612,7 +4656,7 @@
                     </div>
                     <button
                       onClick={() => { copyScheduleSummary(shareModal, shareSelectedMember); setShareModal(null); }}
-                      className="w-full py-3.5 bg-indigo-600 text-white rounded-xl font-bold shadow-md shadow-indigo-600/20 hover:bg-indigo-700 transition-all flex items-center justify-center gap-2"
+                      className="w-full py-3.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-xl font-bold shadow-md shadow-indigo-600/25 hover:from-indigo-700 hover:to-violet-700 transition-all flex items-center justify-center gap-2"
                     >
                       <Icon name="Copy" size={16} /> คัดลอกข้อความตาราง
                     </button>
@@ -4622,7 +4666,7 @@
                     <p className="text-sm text-slate-500">คัดลอกข้อความตารางเรียนของ {shareModal.name} เพื่อนำไปส่งใน LINE</p>
                     <button
                       onClick={() => { copyScheduleSummary(shareModal); setShareModal(null); }}
-                      className="w-full py-3.5 bg-indigo-600 text-white rounded-xl font-bold shadow-md shadow-indigo-600/20 hover:bg-indigo-700 transition-all flex items-center justify-center gap-2"
+                      className="w-full py-3.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-xl font-bold shadow-md shadow-indigo-600/25 hover:from-indigo-700 hover:to-violet-700 transition-all flex items-center justify-center gap-2"
                     >
                       <Icon name="Copy" size={16} /> คัดลอกข้อความตาราง
                     </button>
